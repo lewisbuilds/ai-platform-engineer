@@ -1,5 +1,7 @@
 """Repository compliance tests protecting intentional v2 design constraints."""
 
+import ast
+import json
 from pathlib import Path
 from typing import Final
 
@@ -41,6 +43,17 @@ POLICY_EVALUATION_CALL_ALLOWLIST: Final[set[Path]] = {
     Path("src/ai_container_intelligence/pipeline.py"),
     Path("src/ai_container_intelligence/policy/evaluator.py"),
 }
+PARSER_METRIC_TEST: Final[Path] = Path("tests/unit/test_parser_accuracy_metric.py")
+BLIND_SPOT_TEST: Final[Path] = Path("tests/unit/test_detection_known_blind_spots.py")
+CORPUS_CASES_JSON: Final[Path] = Path("tests/fixtures/golden/corpus_cases.json")
+PARSER_FIDELITY_CASES_JSON: Final[Path] = Path(
+    "tests/fixtures/golden/parser_fidelity_cases.json"
+)
+GOLDEN_FIXTURES_DIR: Final[Path] = Path("tests/fixtures/golden")
+ALLOWED_CLI_IMPORT_TARGETS: Final[set[str]] = {
+    "ai_container_intelligence",
+    "ai_container_intelligence.pipeline",
+}
 
 
 def _read_primary_workflow() -> str:
@@ -55,17 +68,150 @@ def _read_pre_commit_hook() -> str:
     return hook_path.read_text(encoding="utf-8")
 
 
+def _load_corpus_cases() -> list[dict[str, object]]:
+    """Load shared corpus case definitions.
+
+    Returns:
+        Parsed list of corpus case definitions.
+    """
+    cases_path = REPO_ROOT / CORPUS_CASES_JSON
+    payload = json.loads(cases_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise AssertionError("Corpus case definitions must be a list in corpus_cases.json")
+    return [item for item in payload if isinstance(item, dict)]
+
+
+def _load_dockerfile_rule_ids_from_source() -> tuple[str, ...]:
+    """Extract Dockerfile analyzer rule IDs from source to avoid runtime imports.
+
+    Returns:
+        Tuple of configured Dockerfile analyzer rule IDs.
+    """
+    analyzer_path = (
+        REPO_ROOT
+        / "src"
+        / "ai_container_intelligence"
+        / "analysis"
+        / "dockerfile_review.py"
+    )
+    source = analyzer_path.read_text(encoding="utf-8")
+    module = ast.parse(source)
+
+    def _extract_tuple(value: ast.expr) -> tuple[str, ...] | None:
+        if not isinstance(value, ast.Tuple):
+            return None
+        extracted = tuple(
+            item.value
+            for item in value.elts
+            if isinstance(item, ast.Constant) and isinstance(item.value, str)
+        )
+        return extracted if extracted else None
+
+    for node in module.body:
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if (
+                    isinstance(target, ast.Name)
+                    and target.id == "DOCKERFILE_REVIEW_RULE_IDS"
+                ):
+                    extracted = _extract_tuple(node.value)
+                    if extracted:
+                        return extracted
+        if isinstance(node, ast.AnnAssign):
+            target = node.target
+            if (
+                isinstance(target, ast.Name)
+                and target.id == "DOCKERFILE_REVIEW_RULE_IDS"
+                and node.value is not None
+            ):
+                extracted = _extract_tuple(node.value)
+                if extracted:
+                    return extracted
+
+    raise AssertionError(
+        "Could not extract DOCKERFILE_REVIEW_RULE_IDS from "
+        "src/ai_container_intelligence/analysis/dockerfile_review.py"
+    )
+
+
 def test_github_actions_workflow_minimality() -> None:
-    """Ensure v2 keeps a single primary GitHub Actions workflow."""
+    """Ensure repository keeps exactly one approved GitHub Actions workflow."""
     workflows_dir = REPO_ROOT / ".github" / "workflows"
     discovered = {
         path.name
         for path in workflows_dir.iterdir()
         if path.is_file() and path.suffix.lower() in {".yml", ".yaml"}
     }
-    assert PRIMARY_WORKFLOW_NAME in discovered
-    unexpected = discovered - APPROVED_WORKFLOW_NAMES
-    assert not unexpected, f"Unexpected workflow files detected: {sorted(unexpected)}"
+    assert discovered == APPROVED_WORKFLOW_NAMES, (
+        "Workflow minimality violation: expected exactly "
+        f"{sorted(APPROVED_WORKFLOW_NAMES)}, found {sorted(discovered)}"
+    )
+
+
+def test_parser_metric_test_exists_and_is_referenced_in_workflow() -> None:
+    """Ensure parser fidelity metric is explicitly enforced by CI."""
+    parser_metric_path = REPO_ROOT / PARSER_METRIC_TEST
+    blind_spot_path = REPO_ROOT / BLIND_SPOT_TEST
+    assert parser_metric_path.is_file(), (
+        "Parser metric enforcement missing: expected "
+        f"{PARSER_METRIC_TEST} to exist."
+    )
+    assert blind_spot_path.is_file(), (
+        "Parser blind-spot tracker missing: expected "
+        f"{BLIND_SPOT_TEST} to exist."
+    )
+
+    workflow_text = _read_primary_workflow()
+    assert "Run parser fidelity checks" in workflow_text, (
+        "Parser fidelity CI step missing in primary workflow."
+    )
+    assert str(PARSER_METRIC_TEST).replace("\\", "/") in workflow_text, (
+        "Primary workflow does not reference parser metric test."
+    )
+
+
+def test_corpus_governance_assets_exist_and_include_realworld_cases() -> None:
+    """Ensure corpus governance files and realistic fixtures remain present."""
+    corpus_cases_path = REPO_ROOT / CORPUS_CASES_JSON
+    parser_fidelity_path = REPO_ROOT / PARSER_FIDELITY_CASES_JSON
+
+    assert corpus_cases_path.is_file(), (
+        "Corpus governance missing: expected tests/fixtures/golden/corpus_cases.json"
+    )
+    assert parser_fidelity_path.is_file(), (
+        "Parser fidelity governance missing: expected "
+        "tests/fixtures/golden/parser_fidelity_cases.json"
+    )
+
+    realworld_fixtures = sorted(
+        path.name
+        for path in (REPO_ROOT / GOLDEN_FIXTURES_DIR).glob("realworld-*.Dockerfile")
+    )
+    assert len(realworld_fixtures) >= 3, (
+        "Corpus representativeness violation: expected at least 3 realworld fixtures, "
+        f"found {len(realworld_fixtures)} ({realworld_fixtures})"
+    )
+
+
+def test_every_dockerfile_rule_has_expected_finding_evidence() -> None:
+    """Ensure implemented Dockerfile rules are demonstrated by corpus expected findings."""
+    dockerfile_rule_ids = tuple(_load_dockerfile_rule_ids_from_source())
+    expected_finding_rule_ids: set[str] = set()
+    for case in _load_corpus_cases():
+        expected_rules = case.get("expected_rules")
+        if isinstance(expected_rules, list):
+            expected_finding_rule_ids.update(
+                str(rule_id) for rule_id in expected_rules
+            )
+
+    missing = sorted(
+        rule_id
+        for rule_id in dockerfile_rule_ids
+        if rule_id not in expected_finding_rule_ids
+    )
+    assert not missing, (
+        "Rule IDs missing expected-finding corpus coverage: " + ", ".join(missing)
+    )
 
 
 def test_github_actions_permissions_are_least_privilege() -> None:
@@ -188,3 +334,36 @@ def test_cli_module_stays_thin_and_pipeline_oriented() -> None:
             f"from {prefix} import" not in line and f"import {prefix}" not in line
             for line in import_lines
         )
+
+
+def test_cli_imports_only_pipeline_entrypoints() -> None:
+    """Ensure CLI imports only approved package-level entrypoints."""
+    cli_path = REPO_ROOT / "src" / "ai_container_intelligence" / "cli" / "main.py"
+    content = cli_path.read_text(encoding="utf-8")
+    import_lines = [
+        line.strip()
+        for line in content.splitlines()
+        if line.strip().startswith("import ") or line.strip().startswith("from ")
+    ]
+
+    internal_imports = [
+        line
+        for line in import_lines
+        if "ai_container_intelligence" in line
+    ]
+    unexpected = [
+        line
+        for line in internal_imports
+        if not any(
+            (
+                line.startswith(f"from {allowed} import")
+                or line.startswith(f"import {allowed}")
+            )
+            for allowed in ALLOWED_CLI_IMPORT_TARGETS
+        )
+    ]
+
+    assert not unexpected, (
+        "CLI thinness violation: unexpected internal imports found: "
+        f"{unexpected}"
+    )
