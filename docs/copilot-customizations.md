@@ -1,4 +1,4 @@
-# Copilot Customizations (v1)
+# Copilot Customizations (v2)
 
 This repository includes a minimal set of GitHub Copilot customization assets.
 
@@ -31,27 +31,29 @@ File:
 - `instructions/container-engineering-standards.instructions.md`
 
 Purpose:
-- repository-wide rules for v1 boundaries and implementation standards
+- repository-wide rules for v2 boundaries and implementation standards
 - defines required validation commands
 - enforces deterministic and maintainable container analysis patterns
 
 ### Skill
 
 Files:
+- `skills/container-analysis/SKILL.md`
 - `skills/container-analysis-execution/SKILL.md`
 - `skills/container-analysis-execution/references/workflow.md`
 
 Purpose:
-- standardizes how local analysis is executed with `aci`
+- preserves a stable compatibility skill path (`container-analysis`)
+- standardizes local analysis execution with `container-analysis-execution`
 - gives a stable command sequence for contributors and agent usage
 
-## Plugin Files in v1
+## Plugin Files in v2
 
 Current state:
-- no plugin bundle files are active in the repository for v1
+- no plugin bundle files are active in the repository for v2
 
 Rationale:
-- v1 does not implement dynamic plugin loading
+- v2 does not implement dynamic plugin loading
 - introducing plugin bundles now would create maintenance overhead without runtime value
 
 When to add plugin files later:

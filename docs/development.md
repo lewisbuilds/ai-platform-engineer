@@ -1,4 +1,4 @@
-# Development Guide (v1)
+# Development Guide (v2)
 
 ## Setup
 
@@ -33,10 +33,31 @@ aci --dockerfile examples/dockerfiles/minimal-secure.Dockerfile --output example
 ```
 
 Current CLI contract:
-- required input: `--dockerfile`
+- required input: `--dockerfile` (one or more paths)
 - optional input: `--image-tar`
-- output format: `markdown` (v1)
+- provider profile: `--provider-profile real|noop` (default `real`)
+- policy profile: `--policy-profile strict|relaxed` (default `strict`)
+- policy gate: `--fail-on-policy` (returns exit code `3` when blocking findings are present)
+- output format: `markdown`
 - output destination: stdout or `--output <file>`
+
+Analyze multiple Dockerfiles in one run:
+
+```bash
+aci --dockerfile path/to/Dockerfile path/to/Dockerfile.prod --output artifacts/reports/combined.md
+```
+
+Use relaxed policy profile:
+
+```bash
+aci --dockerfile examples/dockerfiles/minimal-secure.Dockerfile --policy-profile relaxed
+```
+
+Enable policy gate for CI/local enforcement:
+
+```bash
+aci --dockerfile examples/dockerfiles/minimal-secure.Dockerfile --fail-on-policy
+```
 
 ## Testing
 
@@ -91,19 +112,23 @@ What it does:
 3. runs security checks (Bandit + secret-pattern guard)
 4. runs test suite
 5. executes `aci` for changed Dockerfiles
+	- if only container policy files changed, it analyzes all tracked Dockerfiles
+	- for manual workflow dispatch, it falls back to the sample Dockerfile target
 6. uploads markdown reports as artifacts
 7. posts analyzed file list to run summary
 
-If no Dockerfile changed, workflow analyzes:
-- `examples/dockerfiles/minimal-secure.Dockerfile`
+If no Dockerfile changed:
+- PR flow with policy-file changes analyzes all tracked Dockerfiles.
+- Manual workflow dispatch analyzes `examples/dockerfiles/minimal-secure.Dockerfile`.
 
-## Contribution Rules for v1
+## Contribution Rules for v2
 
 - Keep CLI thin; do not move business logic into workflow YAML.
 - Keep deterministic ordering of findings.
 - Keep model contracts stable unless required by concrete behavior.
+- Keep policy logic centralized in the policy evaluator.
 - Prefer adding tests with each behavior change.
-- Avoid adding new systems (DB/UI/k8s) in v1.
+- Avoid adding new systems (DB/UI/k8s) in v2.
 
 ## Practical Extension Guidance
 
@@ -111,6 +136,7 @@ Allowed with justification:
 - implement one real integration adapter behind existing protocol
 - add one focused Dockerfile rule with tests
 - improve report clarity while preserving deterministic output
+- adjust strict/relaxed policy profile behavior with evaluator and test updates
 
 Do not add by default:
 - plugin runtime framework
