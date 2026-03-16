@@ -14,7 +14,6 @@ from ai_container_intelligence.integrations.sbom_provider import (
 from ai_container_intelligence.integrations.vuln_scan_provider import (
     VulnerabilityScanProvider,
 )
-from ai_container_intelligence.models.findings import Finding
 from ai_container_intelligence.models.report import (
     AnalysisReport,
     MarkdownReport,
@@ -73,8 +72,7 @@ def run_pipeline(
         vulnerability_provider=vulnerability_provider,
     )
 
-    findings: list[Finding] = []
-    findings.extend(review_dockerfile(dockerfile_path))
+    findings = review_dockerfile(dockerfile_path)
 
     if image_tar_path:
         findings.extend(selected.layer_provider.analyze(image_tar_path))

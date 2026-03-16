@@ -39,18 +39,18 @@ def _format_finding_row(index: int, finding: Finding) -> str:
     """
     location_label = _format_location(finding.location)
     lines = [
-        f"{index}. [{finding.severity.value.upper()}] {finding.rule_id} - {finding.title}\n"
-        f"   - Policy: {finding.disposition.value.upper()}\n"
-        f"   - Source: {finding.source}\n"
-        f"   - Location: {location_label}\n"
-        f"   - Why this is risky: {finding.detail}\n"
-        f"   - How to fix it: {finding.remediation}"
+        f"{index}. [{finding.severity.value.upper()}] {finding.rule_id} - {finding.title}",
+        f"   - Policy: {finding.disposition.value.upper()}",
+        f"   - Source: {finding.source}",
+        f"   - Location: {location_label}",
+        f"   - Why this is risky: {finding.detail}",
+        f"   - How to fix it: {finding.remediation}",
     ]
     if finding.evidence:
-        lines.append("\n   - Evidence:")
+        lines.append("   - Evidence:")
         for key in sorted(finding.evidence):
-            lines.append(f"\n      - {key}: {finding.evidence[key]}")
-    return "".join(lines)
+            lines.append(f"      - {key}: {finding.evidence[key]}")
+    return "\n".join(lines)
 
 
 def _determine_policy_outcome(report: AnalysisReport) -> str:

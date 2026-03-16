@@ -82,103 +82,109 @@ def review_parsed_dockerfile(parsed: ParsedDockerfile) -> list[Finding]:
         Deterministically sorted findings.
     """
     findings: list[Finding] = []
+    has_from_instruction = False
+    has_user_instruction = False
 
-    from_instructions = [item for item in parsed.instructions if item.opcode == "FROM"]
-    if not from_instructions:
+    def add_finding(
+        rule_id: str,
+        title: str,
+        severity: Severity,
+        detail: str,
+        remediation: str,
+        line: int | None,
+    ) -> None:
         findings.append(
             Finding(
-                rule_id="DF001",
-                title="Missing FROM instruction",
-                severity=Severity.CRITICAL,
+                rule_id=rule_id,
+                title=title,
+                severity=severity,
                 source="dockerfile-review",
-                detail="Dockerfile must declare at least one base image.",
-                remediation="Add a pinned and trusted FROM image.",
-                location=FindingLocation(path=parsed.path, line=None),
+                detail=detail,
+                remediation=remediation,
+                location=FindingLocation(path=parsed.path, line=line),
             )
         )
-
-    for item in from_instructions:
-        lower_arg = item.argument.lower()
-        if ":latest" in lower_arg:
-            findings.append(
-                Finding(
-                    rule_id="DF002",
-                    title="Unpinned base image tag",
-                    severity=Severity.HIGH,
-                    source="dockerfile-review",
-                    detail="Using :latest makes builds non-reproducible.",
-                    remediation="Pin a specific immutable image tag.",
-                    location=FindingLocation(path=parsed.path, line=item.line),
-                )
-            )
-
-    user_instructions = [item for item in parsed.instructions if item.opcode == "USER"]
-    if not user_instructions:
-        findings.append(
-            Finding(
-                rule_id="DF003",
-                title="Missing USER instruction",
-                severity=Severity.HIGH,
-                source="dockerfile-review",
-                detail="Container may run as root by default.",
-                remediation="Set USER to a non-root user for runtime.",
-                location=FindingLocation(path=parsed.path, line=None),
-            )
-        )
-    else:
-        for item in user_instructions:
-            user_value = item.argument.strip().lower()
-            if user_value in {"root", "0"}:
-                findings.append(
-                    Finding(
-                        rule_id="DF004",
-                        title="Container configured to run as root",
-                        severity=Severity.HIGH,
-                        source="dockerfile-review",
-                        detail="Running as root increases container attack surface.",
-                        remediation="Use a non-root runtime user.",
-                        location=FindingLocation(path=parsed.path, line=item.line),
-                    )
-                )
 
     for item in parsed.instructions:
         lower_arg = item.argument.lower()
-        if item.opcode == "ADD":
-            findings.append(
-                Finding(
-                    rule_id="DF005",
-                    title="ADD instruction used",
-                    severity=Severity.MEDIUM,
-                    source="dockerfile-review",
-                    detail="ADD can have implicit behaviors that reduce clarity.",
-                    remediation="Prefer COPY unless ADD-specific behavior is required.",
-                    location=FindingLocation(path=parsed.path, line=item.line),
-                )
-            )
-        if item.opcode == "RUN" and "apt-get update" in lower_arg and "rm -rf /var/lib/apt/lists" not in lower_arg:
-            findings.append(
-                Finding(
-                    rule_id="DF006",
-                    title="apt cache not cleaned in RUN layer",
-                    severity=Severity.MEDIUM,
-                    source="dockerfile-review",
-                    detail="apt cache cleanup missing after apt-get update/install.",
-                    remediation="Combine install and cleanup in the same RUN layer.",
-                    location=FindingLocation(path=parsed.path, line=item.line),
-                )
-            )
-        if item.opcode == "RUN" and ("curl" in lower_arg and "|" in lower_arg):
-            findings.append(
-                Finding(
-                    rule_id="DF007",
-                    title="Piped remote script execution",
+
+        if item.opcode == "FROM":
+            has_from_instruction = True
+            if ":latest" in lower_arg:
+                add_finding(
+                    rule_id="DF002",
+                    title="Unpinned base image tag",
                     severity=Severity.HIGH,
-                    source="dockerfile-review",
-                    detail="RUN uses a piped command that may execute unverified remote content.",
-                    remediation="Download, verify checksum/signature, then execute explicitly.",
-                    location=FindingLocation(path=parsed.path, line=item.line),
+                    detail="Using :latest makes builds non-reproducible.",
+                    remediation="Pin a specific immutable image tag.",
+                    line=item.line,
                 )
+
+        if item.opcode == "USER":
+            has_user_instruction = True
+            if item.argument.strip().lower() in {"root", "0"}:
+                add_finding(
+                    rule_id="DF004",
+                    title="Container configured to run as root",
+                    severity=Severity.HIGH,
+                    detail="Running as root increases container attack surface.",
+                    remediation="Use a non-root runtime user.",
+                    line=item.line,
+                )
+
+        if item.opcode == "ADD":
+            add_finding(
+                rule_id="DF005",
+                title="ADD instruction used",
+                severity=Severity.MEDIUM,
+                detail="ADD can have implicit behaviors that reduce clarity.",
+                remediation="Prefer COPY unless ADD-specific behavior is required.",
+                line=item.line,
             )
+
+        if (
+            item.opcode == "RUN"
+            and "apt-get update" in lower_arg
+            and "rm -rf /var/lib/apt/lists" not in lower_arg
+        ):
+            add_finding(
+                rule_id="DF006",
+                title="apt cache not cleaned in RUN layer",
+                severity=Severity.MEDIUM,
+                detail="apt cache cleanup missing after apt-get update/install.",
+                remediation="Combine install and cleanup in the same RUN layer.",
+                line=item.line,
+            )
+
+        if item.opcode == "RUN" and "curl" in lower_arg and "|" in lower_arg:
+            add_finding(
+                rule_id="DF007",
+                title="Piped remote script execution",
+                severity=Severity.HIGH,
+                detail="RUN uses a piped command that may execute unverified remote content.",
+                remediation="Download, verify checksum/signature, then execute explicitly.",
+                line=item.line,
+            )
+
+    if not has_from_instruction:
+        add_finding(
+            rule_id="DF001",
+            title="Missing FROM instruction",
+            severity=Severity.CRITICAL,
+            detail="Dockerfile must declare at least one base image.",
+            remediation="Add a pinned and trusted FROM image.",
+            line=None,
+        )
+
+    if not has_user_instruction:
+        add_finding(
+            rule_id="DF003",
+            title="Missing USER instruction",
+            severity=Severity.HIGH,
+            detail="Container may run as root by default.",
+            remediation="Set USER to a non-root user for runtime.",
+            line=None,
+        )
 
     return sorted(findings, key=finding_sort_key)
 
