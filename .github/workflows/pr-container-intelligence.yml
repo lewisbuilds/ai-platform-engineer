@@ -170,7 +170,7 @@ jobs:
 
             docker run --rm -i \
               -v "$PWD/.hadolint.yaml:/work/.hadolint.yaml:ro" \
-              hadolint/hadolint hadolint --config /work/.hadolint.yaml - < "$dockerfile"
+              hadolint/hadolint:v2.12.0 hadolint --config /work/.hadolint.yaml - < "$dockerfile"
             aci --dockerfile "$dockerfile" --output "$output_file"
             echo "- $dockerfile" >> "$GITHUB_STEP_SUMMARY"
           done
