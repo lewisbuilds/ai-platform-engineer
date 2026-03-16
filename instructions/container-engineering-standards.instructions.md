@@ -61,11 +61,12 @@ pytest
 - Use environment variables for runtime configuration; never bake secrets into images.
 - Add `HEALTHCHECK` for long-running services when an in-container health probe is available.
 
-### Mandatory Final Stage
+### Runtime Base Image Policy
 
-- The final runtime image stage must be `FROM scratch`.
-- Only statically linked binaries and required runtime assets may be copied into the scratch stage.
-- Any Dockerfile that does not end in a scratch runtime stage is non-compliant.
+- The final runtime stage must use the smallest secure base that is appropriate for the runtime.
+- `FROM scratch` is preferred when the workload is a statically linked binary.
+- For interpreted runtimes (for example Python), use a pinned minimal runtime base (for example `python:<version>-slim`) instead of `latest`.
+- Runtime base choices must preserve least-privilege execution and reproducibility requirements.
 
 ## Output Quality
 
