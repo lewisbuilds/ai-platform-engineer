@@ -15,6 +15,8 @@ FIXTURES_DIR: Final[Path] = Path(__file__).resolve().parents[1] / "fixtures" / "
     ("fixture_name", "expected_rules", "unexpected_rules"),
     [
         ("good-pinned-nonroot.Dockerfile", set(), {"DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"}),
+        ("realworld-multistage-nonroot.Dockerfile", set(), {"DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"}),
+        ("realworld-arg-from-pinned.Dockerfile", set(), {"DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"}),
         ("bad-latest-root.Dockerfile", {"DF002", "DF004"}, set()),
         ("bad-missing-from.Dockerfile", {"DF001", "DF003"}, set()),
         ("bad-missing-user.Dockerfile", {"DF003"}, {"DF002", "DF004"}),

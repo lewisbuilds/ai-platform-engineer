@@ -82,6 +82,11 @@ Notes:
 - `test_detection_golden_corpus.py` validates expected and non-expected findings against curated fixture Dockerfiles.
 - `test_detection_known_blind_spots.py` tracks parser limitations as expected-failure tests so known gaps stay visible over time.
 
+Current real-world stress cases included in the golden corpus:
+- Multi-stage build with non-root runtime user (`realworld-multistage-nonroot.Dockerfile`)
+- ARG + FROM pinned base pattern (`realworld-arg-from-pinned.Dockerfile`)
+- Multiline RUN chain with apt cleanup (`realworld-multiline-run-cleanup.Dockerfile`, tracked as known parser blind spot via xfail)
+
 ## Security Checks
 
 Run static security scan locally:
