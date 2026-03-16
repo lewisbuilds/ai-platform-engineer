@@ -64,8 +64,7 @@ jobs:
             --exclude-dir=.venv \
             --exclude-dir=venv \
             --exclude-dir=__pycache__ \
-            --exclude-dir=.pytest_cache \
-            --exclude=*.md; then
+            --exclude-dir=.pytest_cache; then
             echo "Potential secret-like material detected in repository." >&2
             exit 1
           fi
