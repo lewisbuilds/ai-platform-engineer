@@ -1,0 +1,42 @@
+[
+  {
+    "fixture_name": "good-pinned-nonroot.Dockerfile",
+    "expected_rules": [],
+    "unexpected_rules": ["DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"]
+  },
+  {
+    "fixture_name": "realworld-multistage-nonroot.Dockerfile",
+    "expected_rules": [],
+    "unexpected_rules": ["DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"]
+  },
+  {
+    "fixture_name": "realworld-arg-from-pinned.Dockerfile",
+    "expected_rules": [],
+    "unexpected_rules": ["DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"]
+  },
+  {
+    "fixture_name": "bad-latest-root.Dockerfile",
+    "expected_rules": ["DF002", "DF004"],
+    "unexpected_rules": []
+  },
+  {
+    "fixture_name": "bad-missing-from.Dockerfile",
+    "expected_rules": ["DF001", "DF003"],
+    "unexpected_rules": []
+  },
+  {
+    "fixture_name": "bad-missing-user.Dockerfile",
+    "expected_rules": ["DF003"],
+    "unexpected_rules": ["DF002", "DF004"]
+  },
+  {
+    "fixture_name": "bad-add-apt-cache.Dockerfile",
+    "expected_rules": ["DF005", "DF006"],
+    "unexpected_rules": []
+  },
+  {
+    "fixture_name": "bad-remote-pipe.Dockerfile",
+    "expected_rules": ["DF007"],
+    "unexpected_rules": []
+  }
+]

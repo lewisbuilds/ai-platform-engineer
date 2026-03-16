@@ -1,0 +1,184 @@
+name: PR Container Intelligence
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "**/Dockerfile"
+      - "**/Dockerfile.*"
+      - "**/*.dockerfile"
+      - "agents/container-review.agent.md"
+      - "instructions/container-engineering-standards.instructions.md"
+      - "skills/container-analysis/SKILL.md"
+      - "src/ai_container_intelligence/analysis/**"
+      - "src/ai_container_intelligence/integrations/**"
+      - "src/ai_container_intelligence/models/**"
+      - "src/ai_container_intelligence/reporting/**"
+      - "src/ai_container_intelligence/cli/**"
+      - "src/ai_container_intelligence/pipeline.py"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".hadolint.yaml"
+      - ".dockerignore"
+      - ".github/workflows/pr-container-intelligence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-container-intelligence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  container-intelligence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest
+
+      - name: Install security tooling
+        run: python -m pip install bandit
+
+      - name: Run security checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          bandit -q -r src/ai_container_intelligence
+
+          if grep -R -n -E "BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY|AKIA[0-9A-Z]{16}|xox[baprs]-|ghp_[A-Za-z0-9]{36}" . \
+            --exclude-dir=.git \
+            --exclude-dir=.venv \
+            --exclude-dir=venv \
+            --exclude-dir=__pycache__ \
+            --exclude-dir=.pytest_cache; then
+            echo "Potential secret-like material detected in repository." >&2
+            exit 1
+          fi
+
+      - name: Run parser fidelity checks
+        run: |
+          python -m pytest -q \
+            tests/unit/test_parser_accuracy_metric.py \
+            tests/unit/test_detection_known_blind_spots.py
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Run container analysis and build reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/reports
+
+          CHANGED_DOCKERFILES=()
+          CHANGED_POLICY_FILES=()
+          TARGET_DOCKERFILES=()
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+            mapfile -t CHANGED_DOCKERFILES < <(
+              git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+                ':(glob)**/Dockerfile' \
+                ':(glob)**/Dockerfile.*' \
+                ':(glob)**/*.dockerfile' || true
+            )
+
+            mapfile -t CHANGED_POLICY_FILES < <(
+              git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+                .hadolint.yaml \
+                .dockerignore \
+                agents/container-review.agent.md \
+                instructions/container-engineering-standards.instructions.md \
+                skills/container-analysis/SKILL.md || true
+            )
+
+            if [[ "${#CHANGED_DOCKERFILES[@]}" -gt 0 ]]; then
+              TARGET_DOCKERFILES=("${CHANGED_DOCKERFILES[@]}")
+            elif [[ "${#CHANGED_POLICY_FILES[@]}" -gt 0 ]]; then
+              mapfile -t TARGET_DOCKERFILES < <(
+                git ls-files -- \
+                  ':(glob)**/Dockerfile' \
+                  ':(glob)**/Dockerfile.*' \
+                  ':(glob)**/*.dockerfile' || true
+              )
+            fi
+          else
+            TARGET_DOCKERFILES=("examples/dockerfiles/minimal-secure.Dockerfile")
+          fi
+
+          {
+            echo "# Container Intelligence Target Summary"
+            echo
+            echo "## Changed Dockerfiles"
+            if [[ "${#CHANGED_DOCKERFILES[@]}" -eq 0 ]]; then
+              echo "- (none)"
+            else
+              for file in "${CHANGED_DOCKERFILES[@]}"; do
+                echo "- $file"
+              done
+            fi
+            echo
+            echo "## Changed Container Policy Files"
+            if [[ "${#CHANGED_POLICY_FILES[@]}" -eq 0 ]]; then
+              echo "- (none)"
+            else
+              for file in "${CHANGED_POLICY_FILES[@]}"; do
+                echo "- $file"
+              done
+            fi
+            echo
+            echo "## Analysis Targets"
+            if [[ "${#TARGET_DOCKERFILES[@]}" -eq 0 ]]; then
+              echo "- (none)"
+            else
+              for file in "${TARGET_DOCKERFILES[@]}"; do
+                echo "- $file"
+              done
+            fi
+          } > artifacts/reports/changed-targets-summary.md
+
+          {
+            echo "## Container Intelligence Report"
+            echo
+            echo "Analyzed Dockerfiles:"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${#TARGET_DOCKERFILES[@]}" -eq 0 ]]; then
+            echo "- (none)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          for dockerfile in "${TARGET_DOCKERFILES[@]}"; do
+            safe_name="$(echo "$dockerfile" | tr '/\\' '__' | tr -cd 'A-Za-z0-9._-')"
+            output_file="artifacts/reports/${safe_name}.md"
+
+            docker run --rm -i \
+              -v "$PWD/.hadolint.yaml:/work/.hadolint.yaml:ro" \
+              hadolint/hadolint:v2.12.0 hadolint --config /work/.hadolint.yaml - < "$dockerfile"
+            aci --dockerfile "$dockerfile" --output "$output_file"
+            echo "- $dockerfile" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload container intelligence reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-intelligence-report
+          path: |
+            artifacts/reports/*.md
+          if-no-files-found: error
+          retention-days: 7
