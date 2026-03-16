@@ -11,6 +11,17 @@ from ai_container_intelligence.models.findings import (
 )
 
 
+DOCKERFILE_REVIEW_RULE_IDS: tuple[str, ...] = (
+    "DF001",
+    "DF002",
+    "DF003",
+    "DF004",
+    "DF005",
+    "DF006",
+    "DF007",
+)
+
+
 @dataclass(frozen=True)
 class DockerInstruction:
     """Represents one parsed Dockerfile instruction.

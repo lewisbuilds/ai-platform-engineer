@@ -1,13 +1,26 @@
 """Governance checks for keeping the detection corpus representative."""
 
+import json
 from pathlib import Path
 from typing import Final
 
+from ai_container_intelligence.analysis import DOCKERFILE_REVIEW_RULE_IDS
 from ai_container_intelligence.analysis.dockerfile_review import review_dockerfile
 
 
 FIXTURES_DIR: Final[Path] = Path(__file__).resolve().parents[1] / "fixtures" / "golden"
-BASELINE_RULES: Final[set[str]] = {"DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"}
+CASES_FILE: Final[Path] = FIXTURES_DIR / "corpus_cases.json"
+BASELINE_RULES: Final[set[str]] = set(DOCKERFILE_REVIEW_RULE_IDS)
+
+
+def _load_detection_cases() -> list[dict[str, object]]:
+    payload = json.loads(CASES_FILE.read_text(encoding="utf-8"))
+    return list(payload)
+
+
+def _expected_rules(case: dict[str, object]) -> list[str]:
+    raw = case.get("expected_rules", [])
+    return [str(item) for item in raw] if isinstance(raw, list) else []
 
 
 def _fixture_names() -> list[str]:
@@ -41,3 +54,18 @@ def test_corpus_includes_clean_and_dirty_samples() -> None:
     ]
     assert any(count == 0 for count in finding_counts)
     assert any(count >= 2 for count in finding_counts)
+
+
+def test_every_dockerfile_rule_has_expected_finding_corpus_coverage() -> None:
+    """Require each implemented Dockerfile rule to appear in expected-finding corpus cases."""
+    expected_finding_rule_ids = {
+        rule_id
+        for item in _load_detection_cases()
+        for rule_id in _expected_rules(item)
+    }
+
+    missing = set(DOCKERFILE_REVIEW_RULE_IDS) - expected_finding_rule_ids
+    assert not missing, (
+        "Rule IDs missing expected-finding corpus coverage: "
+        + ", ".join(sorted(missing))
+    )

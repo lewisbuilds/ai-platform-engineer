@@ -1,5 +1,6 @@
 """Golden corpus tests for detection-quality baselining."""
 
+import json
 from pathlib import Path
 from typing import Final
 
@@ -9,20 +10,24 @@ from ai_container_intelligence.analysis.dockerfile_review import review_dockerfi
 
 
 FIXTURES_DIR: Final[Path] = Path(__file__).resolve().parents[1] / "fixtures" / "golden"
+CASES_FILE: Final[Path] = FIXTURES_DIR / "corpus_cases.json"
+
+
+def _load_detection_cases() -> list[tuple[str, set[str], set[str]]]:
+    payload = json.loads(CASES_FILE.read_text(encoding="utf-8"))
+    return [
+        (
+            item["fixture_name"],
+            set(item["expected_rules"]),
+            set(item["unexpected_rules"]),
+        )
+        for item in payload
+    ]
 
 
 @pytest.mark.parametrize(
     ("fixture_name", "expected_rules", "unexpected_rules"),
-    [
-        ("good-pinned-nonroot.Dockerfile", set(), {"DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"}),
-        ("realworld-multistage-nonroot.Dockerfile", set(), {"DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"}),
-        ("realworld-arg-from-pinned.Dockerfile", set(), {"DF001", "DF002", "DF003", "DF004", "DF005", "DF006", "DF007"}),
-        ("bad-latest-root.Dockerfile", {"DF002", "DF004"}, set()),
-        ("bad-missing-from.Dockerfile", {"DF001", "DF003"}, set()),
-        ("bad-missing-user.Dockerfile", {"DF003"}, {"DF002", "DF004"}),
-        ("bad-add-apt-cache.Dockerfile", {"DF005", "DF006"}, set()),
-        ("bad-remote-pipe.Dockerfile", {"DF007"}, set()),
-    ],
+    _load_detection_cases(),
 )
 def test_detection_golden_corpus(
     fixture_name: str,
