@@ -98,6 +98,28 @@ Corpus governance checks:
 - The same governance test ensures the baseline rule surface is still exercised.
 - It also verifies the corpus contains both clean and multi-finding samples.
 
+## Parser Fidelity Sprint Contract
+
+Sprint objective:
+- Improve whether Dockerfile parsing understands real-world authoring patterns correctly before expanding finding evidence depth.
+
+Scope constraints:
+- Do not add new Dockerfile rules unless parser fixes make this strictly necessary.
+- Focus on parser correctness, blind-spot retirement, and measurable parser behavior.
+- Keep existing architecture boundaries intact (no new top-level source package entries).
+
+Acceptance criteria:
+- Full test suite remains green.
+- Expected-failure blind-spot count does not increase.
+- At least two known parser blind spots are retired from expected-fail to pass.
+- Parser accuracy metric is introduced, easy to explain, and enforced in CI.
+- No new top-level package boundaries are introduced.
+
+Parser accuracy metric guidance:
+- Keep metric simple and transparent.
+- Preferred shape: passed parser assertions / total parser assertions.
+- Enforce minimum threshold against a documented baseline.
+
 ## Security Checks
 
 Run static security scan locally:
