@@ -51,8 +51,9 @@ class TrivyVulnerabilityScanProvider:
         "CRITICAL": Severity.CRITICAL,
     }
 
-    def __init__(self, executable: str = "trivy") -> None:
+    def __init__(self, executable: str = "trivy", timeout_seconds: int = 180) -> None:
         self._executable = executable
+        self._timeout_seconds = timeout_seconds
 
     def scan(self, image_ref: str) -> list[Finding]:
         """Run Trivy JSON scan and normalize findings.
@@ -76,12 +77,26 @@ class TrivyVulnerabilityScanProvider:
             ]
 
         command = [self._executable, "image", "--format", "json", image_ref]
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-        )  # nosec B603 - shell=False and argument list prevent shell injection.
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=self._timeout_seconds,
+            )  # nosec B603 - shell=False and argument list prevent shell injection.
+        except subprocess.TimeoutExpired:
+            return [
+                Finding(
+                    rule_id="VULN002",
+                    title="Trivy execution timed out",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail=f"Trivy did not complete within {self._timeout_seconds} seconds.",
+                    remediation="Increase timeout for large images or verify Trivy runtime/network authentication.",
+                    location=FindingLocation(path=image_ref),
+                )
+            ]
         if completed.returncode != 0:
             stderr = completed.stderr.strip() or "Trivy failed without stderr output."
             return [

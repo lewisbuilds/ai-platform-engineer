@@ -81,3 +81,19 @@ def test_trivy_provider_returns_no_vuln_summary(monkeypatch: MonkeyPatch) -> Non
     result = provider.scan("example:image")
 
     assert [item.rule_id for item in result] == ["VULN005"]
+
+
+def test_trivy_provider_handles_timeout(monkeypatch: MonkeyPatch) -> None:
+    """Return deterministic timeout finding when Trivy hangs."""
+
+    def _fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=["trivy"], timeout=180)
+
+    monkeypatch.setattr("ai_container_intelligence.integrations.vuln_scan_provider.shutil.which", lambda _: "trivy")
+    monkeypatch.setattr("ai_container_intelligence.integrations.vuln_scan_provider.subprocess.run", _fake_run)
+
+    provider = TrivyVulnerabilityScanProvider()
+    result = provider.scan("example:image")
+
+    assert [item.rule_id for item in result] == ["VULN002"]
+    assert result[0].title == "Trivy execution timed out"

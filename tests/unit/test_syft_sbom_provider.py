@@ -55,3 +55,18 @@ def test_syft_provider_handles_invalid_json(monkeypatch: MonkeyPatch) -> None:
     result = provider.generate("example:image")
 
     assert [item.rule_id for item in result] == ["SBOM003"]
+
+
+def test_syft_provider_handles_timeout(monkeypatch: MonkeyPatch) -> None:
+    """Return deterministic finding when Syft execution exceeds timeout."""
+
+    def _fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        raise subprocess.TimeoutExpired(cmd=["syft"], timeout=120)
+
+    monkeypatch.setattr("ai_container_intelligence.integrations.sbom_provider.shutil.which", lambda _: "syft")
+    monkeypatch.setattr("ai_container_intelligence.integrations.sbom_provider.subprocess.run", _fake_run)
+
+    provider = SyftSbomProvider()
+    result = provider.generate("example:image")
+
+    assert [item.rule_id for item in result] == ["SBOM008"]

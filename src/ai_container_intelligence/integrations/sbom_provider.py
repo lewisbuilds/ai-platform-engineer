@@ -44,8 +44,9 @@ class SyftSbomProvider:
 
     _PROVIDER_NAME = "syft"
 
-    def __init__(self, executable: str = "syft") -> None:
+    def __init__(self, executable: str = "syft", timeout_seconds: int = 120) -> None:
         self._executable = executable
+        self._timeout_seconds = timeout_seconds
 
     def generate(self, image_ref: str) -> list[Finding]:
         """Generate CycloneDX JSON SBOM findings using Syft.
@@ -69,12 +70,26 @@ class SyftSbomProvider:
             ]
 
         command = [self._executable, image_ref, "-o", "cyclonedx-json"]
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-        )  # nosec B603 - shell=False and argument list prevent shell injection.
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=self._timeout_seconds,
+            )  # nosec B603 - shell=False and argument list prevent shell injection.
+        except subprocess.TimeoutExpired:
+            return [
+                Finding(
+                    rule_id="SBOM008",
+                    title="Syft execution timed out",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail=f"Syft did not complete within {self._timeout_seconds} seconds.",
+                    remediation="Increase timeout for large images or verify Syft runtime/network health.",
+                    location=FindingLocation(path=image_ref),
+                )
+            ]
         if completed.returncode != 0:
             stderr = completed.stderr.strip() or "Syft failed without stderr output."
             return [
