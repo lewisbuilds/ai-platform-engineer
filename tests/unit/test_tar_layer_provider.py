@@ -33,9 +33,8 @@ def test_tar_layer_provider_detects_manifest_and_layer_summary(tmp_path: Path) -
     provider = TarLayerAnalysisProvider()
     result = provider.analyze(str(archive_path))
 
-    assert result.provider_name == "tar-layer"
-    assert any(item.rule_id == "LAY005" for item in result.findings)
-    assert not any(item.rule_id in {"LAY001", "LAY002", "LAY003", "LAY004"} for item in result.findings)
+    assert any(item.rule_id == "LAY005" for item in result)
+    assert not any(item.rule_id in {"LAY001", "LAY002", "LAY003", "LAY004"} for item in result)
 
 
 def test_tar_layer_provider_handles_missing_manifest(tmp_path: Path) -> None:
@@ -47,4 +46,4 @@ def test_tar_layer_provider_handles_missing_manifest(tmp_path: Path) -> None:
     provider = TarLayerAnalysisProvider()
     result = provider.analyze(str(archive_path))
 
-    assert [item.rule_id for item in result.findings] == ["LAY002"]
+    assert [item.rule_id for item in result] == ["LAY002"]

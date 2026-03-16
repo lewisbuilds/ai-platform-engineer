@@ -20,7 +20,11 @@ from ai_container_intelligence.models.report import (
     MarkdownReport,
     create_analysis_report,
 )
-from ai_container_intelligence.policy import evaluate_findings_policy, resolve_policy_config
+from ai_container_intelligence.policy import (
+    PolicyProfile,
+    evaluate_findings_policy,
+    resolve_policy_config,
+)
 from ai_container_intelligence.reporting.markdown_report import render_markdown_report
 
 
@@ -42,7 +46,7 @@ def run_pipeline(
     image_tar_path: str | None = None,
     image_ref: str | None = None,
     provider_profile: Literal["real", "noop"] = "real",
-    policy_profile: Literal["strict", "relaxed"] = "strict",
+    policy_profile: PolicyProfile = "strict",
     layer_provider: LayerAnalysisProvider | None = None,
     sbom_provider: SbomProvider | None = None,
     vulnerability_provider: VulnerabilityScanProvider | None = None,
@@ -73,14 +77,11 @@ def run_pipeline(
     findings.extend(review_dockerfile(dockerfile_path))
 
     if image_tar_path:
-        layer_result = selected.layer_provider.analyze(image_tar_path)
-        findings.extend(layer_result.findings)
+        findings.extend(selected.layer_provider.analyze(image_tar_path))
 
     if image_ref:
-        sbom_result = selected.sbom_provider.generate(image_ref)
-        findings.extend(sbom_result.findings)
-        vulnerability_result = selected.vulnerability_provider.scan(image_ref)
-        findings.extend(vulnerability_result.findings)
+        findings.extend(selected.sbom_provider.generate(image_ref))
+        findings.extend(selected.vulnerability_provider.scan(image_ref))
 
     policy_evaluation = evaluate_findings_policy(
         findings,

@@ -56,7 +56,7 @@ def _read_pre_commit_hook() -> str:
 
 
 def test_github_actions_workflow_minimality() -> None:
-    """Ensure version 1 keeps a single primary GitHub Actions workflow."""
+    """Ensure v2 keeps a single primary GitHub Actions workflow."""
     workflows_dir = REPO_ROOT / ".github" / "workflows"
     discovered = {
         path.name
@@ -125,8 +125,9 @@ def test_forbidden_speculative_modules_do_not_exist() -> None:
     assert not present, f"Forbidden speculative source paths found: {present}"
 
 
-def test_core_package_boundaries_match_approved_v1_set() -> None:
+def test_core_package_boundaries_match_approved_v2_set() -> None:
     """Ensure top-level package layout stays within approved v2 boundaries."""
+
     package_root = REPO_ROOT / "src" / "ai_container_intelligence"
     discovered = {
         path.name

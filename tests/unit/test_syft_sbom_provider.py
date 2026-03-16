@@ -18,10 +18,7 @@ def test_syft_provider_handles_missing_executable(monkeypatch: MonkeyPatch) -> N
     provider = SyftSbomProvider()
     result = provider.generate("example:image")
 
-    assert result.provider_name == "syft"
-    assert result.success is False
-    assert result.output_path is None
-    assert [item.rule_id for item in result.findings] == ["SBOM001"]
+    assert [item.rule_id for item in result] == ["SBOM001"]
 
 
 def test_syft_provider_normalizes_successful_json(monkeypatch: MonkeyPatch) -> None:
@@ -42,9 +39,7 @@ def test_syft_provider_normalizes_successful_json(monkeypatch: MonkeyPatch) -> N
     provider = SyftSbomProvider()
     result = provider.generate("example:image")
 
-    assert result.success is True
-    assert result.output_path == "example:image.syft.cdx.json"
-    assert {item.rule_id for item in result.findings} == {"SBOM005", "SBOM006"}
+    assert {item.rule_id for item in result} == {"SBOM005", "SBOM006"}
 
 
 def test_syft_provider_handles_invalid_json(monkeypatch: MonkeyPatch) -> None:
@@ -59,5 +54,4 @@ def test_syft_provider_handles_invalid_json(monkeypatch: MonkeyPatch) -> None:
     provider = SyftSbomProvider()
     result = provider.generate("example:image")
 
-    assert result.success is False
-    assert [item.rule_id for item in result.findings] == ["SBOM003"]
+    assert [item.rule_id for item in result] == ["SBOM003"]

@@ -34,6 +34,10 @@ class PolicyEvaluation:
     summary: PolicyImpactSummary
 
 
+PolicyProfile = Literal["strict", "relaxed"]
+POLICY_PROFILES: tuple[PolicyProfile, ...] = ("strict", "relaxed")
+
+
 STRICT_POLICY = PolicyConfig(
     severity_overrides={},
     blocking_rule_ids={"DF004"},
@@ -49,7 +53,7 @@ RELAXED_POLICY = PolicyConfig(
 DEFAULT_POLICY = STRICT_POLICY
 
 
-def resolve_policy_config(profile: Literal["strict", "relaxed"] = "strict") -> PolicyConfig:
+def resolve_policy_config(profile: PolicyProfile = "strict") -> PolicyConfig:
     """Resolve built-in policy profile to concrete policy configuration.
 
     Args:

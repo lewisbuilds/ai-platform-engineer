@@ -8,10 +8,9 @@ from ai_container_intelligence.cli import main as cli_main
 
 
 def test_build_parser_defaults() -> None:
-    """Ensure parser defaults are stable for version 1."""
+    """Ensure parser defaults stay stable for the current CLI contract."""
     parser = cli_main.build_parser()
     args = parser.parse_args(["--dockerfile", "tests/fixtures/Dockerfile.good"])
-    assert args.output_format == "markdown"
     assert args.provider_profile == "real"
     assert args.policy_profile == "strict"
     assert args.fail_on_policy is False

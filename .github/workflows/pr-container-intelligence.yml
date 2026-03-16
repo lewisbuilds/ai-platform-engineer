@@ -86,20 +86,21 @@ jobs:
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
-            mapfile -t CHANGED_FILES < <(
-              git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true
+            mapfile -t CHANGED_DOCKERFILES < <(
+              git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+                ':(glob)**/Dockerfile' \
+                ':(glob)**/Dockerfile.*' \
+                ':(glob)**/*.dockerfile' || true
             )
 
-            for changed in "${CHANGED_FILES[@]}"; do
-              case "$changed" in
-                *Dockerfile|*Dockerfile.*|*.dockerfile)
-                  CHANGED_DOCKERFILES+=("$changed")
-                  ;;
-                .hadolint.yaml|.dockerignore|agents/container-review.agent.md|instructions/container-engineering-standards.instructions.md|skills/container-analysis/SKILL.md)
-                  CHANGED_POLICY_FILES+=("$changed")
-                  ;;
-              esac
-            done
+            mapfile -t CHANGED_POLICY_FILES < <(
+              git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
+                .hadolint.yaml \
+                .dockerignore \
+                agents/container-review.agent.md \
+                instructions/container-engineering-standards.instructions.md \
+                skills/container-analysis/SKILL.md || true
+            )
 
             if [[ "${#CHANGED_DOCKERFILES[@]}" -gt 0 ]]; then
               TARGET_DOCKERFILES=("${CHANGED_DOCKERFILES[@]}")

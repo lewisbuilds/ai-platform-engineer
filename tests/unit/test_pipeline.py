@@ -4,7 +4,6 @@ from pathlib import Path
 
 from pytest import MonkeyPatch
 
-from ai_container_intelligence.integrations.layer_analysis_provider import LayerAnalysisResult
 from ai_container_intelligence.models.findings import Finding, FindingLocation, Severity
 from ai_container_intelligence.pipeline import run_pipeline
 
@@ -12,7 +11,7 @@ from ai_container_intelligence.pipeline import run_pipeline
 class _StaticLayerProvider:
     """Deterministic layer provider for pipeline tests."""
 
-    def analyze(self, image_tar_path: str) -> LayerAnalysisResult:
+    def analyze(self, image_tar_path: str) -> list[Finding]:
         """Return one stable finding for image tar path.
 
         Args:
@@ -22,20 +21,17 @@ class _StaticLayerProvider:
             Layer analysis result with one low-severity finding.
         """
         _ = image_tar_path
-        return LayerAnalysisResult(
-            provider_name="test-layer",
-            findings=[
-                Finding(
-                    rule_id="L001",
-                    title="Layer metadata note",
-                    severity=Severity.LOW,
-                    source="test-layer",
-                    detail="Layer provider path is exercised.",
-                    remediation="No action required for test.",
-                    location=FindingLocation(path="image.tar", line=1),
-                )
-            ],
-        )
+        return [
+            Finding(
+                rule_id="L001",
+                title="Layer metadata note",
+                severity=Severity.LOW,
+                source="test-layer",
+                detail="Layer provider path is exercised.",
+                remediation="No action required for test.",
+                location=FindingLocation(path="image.tar", line=1),
+            )
+        ]
 
 
 def test_run_pipeline_returns_expected_shapes() -> None:

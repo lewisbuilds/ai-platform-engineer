@@ -1,6 +1,5 @@
 """Vulnerability scan provider abstraction."""
 
-from dataclasses import dataclass
 import json
 import shutil
 import subprocess
@@ -9,25 +8,10 @@ from typing import Protocol
 from ai_container_intelligence.models.findings import Finding, FindingLocation, Severity
 
 
-@dataclass(frozen=True)
-class VulnerabilityScanResult:
-    """Vulnerability scan result metadata.
-
-    Args:
-        provider_name: Integration provider name.
-        success: Whether scan succeeded.
-        findings: Normalized findings from scan.
-    """
-
-    provider_name: str
-    success: bool
-    findings: list[Finding]
-
-
 class VulnerabilityScanProvider(Protocol):
     """Protocol for vulnerability scan integrations."""
 
-    def scan(self, image_ref: str) -> VulnerabilityScanResult:
+    def scan(self, image_ref: str) -> list[Finding]:
         """Run vulnerability scan for an image reference.
 
         Args:
@@ -42,7 +26,7 @@ class VulnerabilityScanProvider(Protocol):
 class NoopVulnerabilityScanProvider:
     """Fallback provider used by the scaffold."""
 
-    def scan(self, image_ref: str) -> VulnerabilityScanResult:
+    def scan(self, image_ref: str) -> list[Finding]:
         """Return a deterministic stub result.
 
         Args:
@@ -52,11 +36,7 @@ class NoopVulnerabilityScanProvider:
             Stub scan result.
         """
         _ = image_ref
-        return VulnerabilityScanResult(
-            provider_name="noop-vuln",
-            success=False,
-            findings=[],
-        )
+        return []
 
 
 class TrivyVulnerabilityScanProvider:
@@ -74,7 +54,7 @@ class TrivyVulnerabilityScanProvider:
     def __init__(self, executable: str = "trivy") -> None:
         self._executable = executable
 
-    def scan(self, image_ref: str) -> VulnerabilityScanResult:
+    def scan(self, image_ref: str) -> list[Finding]:
         """Run Trivy JSON scan and normalize findings.
 
         Args:
@@ -84,20 +64,16 @@ class TrivyVulnerabilityScanProvider:
             Normalized vulnerability scan result.
         """
         if shutil.which(self._executable) is None:
-            return VulnerabilityScanResult(
-                provider_name=self._PROVIDER_NAME,
-                success=False,
-                findings=[
-                    Finding(
-                        rule_id="VULN001",
-                        title="Trivy not available",
-                        severity=Severity.MEDIUM,
-                        source=self._PROVIDER_NAME,
-                        detail="Trivy executable is not installed or not on PATH.",
-                        remediation="Install Trivy and ensure it is available on PATH.",
-                    )
-                ],
-            )
+            return [
+                Finding(
+                    rule_id="VULN001",
+                    title="Trivy not available",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail="Trivy executable is not installed or not on PATH.",
+                    remediation="Install Trivy and ensure it is available on PATH.",
+                )
+            ]
 
         command = [self._executable, "image", "--format", "json", image_ref]
         completed = subprocess.run(
@@ -108,47 +84,34 @@ class TrivyVulnerabilityScanProvider:
         )
         if completed.returncode != 0:
             stderr = completed.stderr.strip() or "Trivy failed without stderr output."
-            return VulnerabilityScanResult(
-                provider_name=self._PROVIDER_NAME,
-                success=False,
-                findings=[
-                    Finding(
-                        rule_id="VULN002",
-                        title="Trivy execution failed",
-                        severity=Severity.MEDIUM,
-                        source=self._PROVIDER_NAME,
-                        detail=stderr,
-                        remediation="Verify image reference and local Trivy configuration.",
-                        location=FindingLocation(path=image_ref),
-                    )
-                ],
-            )
+            return [
+                Finding(
+                    rule_id="VULN002",
+                    title="Trivy execution failed",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail=stderr,
+                    remediation="Verify image reference and local Trivy configuration.",
+                    location=FindingLocation(path=image_ref),
+                )
+            ]
 
         try:
             payload = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
-            return VulnerabilityScanResult(
-                provider_name=self._PROVIDER_NAME,
-                success=False,
-                findings=[
-                    Finding(
-                        rule_id="VULN003",
-                        title="Invalid Trivy JSON output",
-                        severity=Severity.MEDIUM,
-                        source=self._PROVIDER_NAME,
-                        detail=f"Unable to parse Trivy output: {exc}",
-                        remediation="Ensure Trivy is executed with --format json.",
-                        location=FindingLocation(path=image_ref),
-                    )
-                ],
-            )
+            return [
+                Finding(
+                    rule_id="VULN003",
+                    title="Invalid Trivy JSON output",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail=f"Unable to parse Trivy output: {exc}",
+                    remediation="Ensure Trivy is executed with --format json.",
+                    location=FindingLocation(path=image_ref),
+                )
+            ]
 
-        findings = self._normalize_findings(payload=payload, image_ref=image_ref)
-        return VulnerabilityScanResult(
-            provider_name=self._PROVIDER_NAME,
-            success=True,
-            findings=findings,
-        )
+        return self._normalize_findings(payload=payload, image_ref=image_ref)
 
     def _normalize_findings(self, payload: object, image_ref: str) -> list[Finding]:
         if not isinstance(payload, dict):

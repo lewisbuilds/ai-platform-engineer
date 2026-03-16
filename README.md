@@ -51,7 +51,7 @@ For deeper detail, see [docs/architecture.md](docs/architecture.md).
 ## 5) Repo Structure
 - [src/ai_container_intelligence](src/ai_container_intelligence): production package
 	- `analysis/`: Dockerfile analysis logic
-	- `integrations/`: provider contracts and no-op providers
+	- `integrations/`: provider contracts and real/no-op adapters
 	- `models/`: typed contracts (findings, report)
 	- `reporting/`: output rendering
 	- `cli/`: thin command surface
@@ -92,7 +92,6 @@ CLI notes:
 - `--provider-profile` supports `real` and `noop`.
 - `--policy-profile` supports `strict` and `relaxed`.
 - `--fail-on-policy` enables explicit blocking exit behavior (exit code `3`).
-- `--output-format` currently supports `markdown`.
 - `--output` is optional; without it, report content is printed to stdout.
 
 ## 7) Example Analysis Flow

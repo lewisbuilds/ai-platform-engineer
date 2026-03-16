@@ -21,9 +21,7 @@ def test_trivy_provider_handles_missing_executable(monkeypatch: MonkeyPatch) -> 
     provider = TrivyVulnerabilityScanProvider()
     result = provider.scan("example:image")
 
-    assert result.provider_name == "trivy"
-    assert result.success is False
-    assert [item.rule_id for item in result.findings] == ["VULN001"]
+    assert [item.rule_id for item in result] == ["VULN001"]
 
 
 def test_trivy_provider_normalizes_vulnerabilities(monkeypatch: MonkeyPatch) -> None:
@@ -62,9 +60,8 @@ def test_trivy_provider_normalizes_vulnerabilities(monkeypatch: MonkeyPatch) -> 
     provider = TrivyVulnerabilityScanProvider()
     result = provider.scan("example:image")
 
-    assert result.success is True
-    assert len(result.findings) == 2
-    by_id = {item.rule_id: item for item in result.findings}
+    assert len(result) == 2
+    by_id = {item.rule_id: item for item in result}
     assert by_id["VULN-CVE-2026-0001"].severity is Severity.CRITICAL
     assert by_id["VULN-CVE-2026-0001"].remediation == "Upgrade to fixed version 3.0.0."
     assert by_id["VULN-CVE-2026-0002"].severity is Severity.LOW
@@ -83,5 +80,4 @@ def test_trivy_provider_returns_no_vuln_summary(monkeypatch: MonkeyPatch) -> Non
     provider = TrivyVulnerabilityScanProvider()
     result = provider.scan("example:image")
 
-    assert result.success is True
-    assert [item.rule_id for item in result.findings] == ["VULN005"]
+    assert [item.rule_id for item in result] == ["VULN005"]

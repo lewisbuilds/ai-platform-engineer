@@ -1,30 +1,15 @@
 """Layer analysis provider abstraction."""
 
-from dataclasses import dataclass
 import json
 import tarfile
 from typing import Protocol
 
 from ai_container_intelligence.models.findings import Finding, FindingLocation, Severity
 
-
-@dataclass(frozen=True)
-class LayerAnalysisResult:
-    """Layer analysis result container.
-
-    Args:
-        provider_name: Integration provider name.
-        findings: Normalized findings from provider analysis.
-    """
-
-    provider_name: str
-    findings: list[Finding]
-
-
 class LayerAnalysisProvider(Protocol):
     """Protocol for layer metadata analyzers."""
 
-    def analyze(self, image_tar_path: str) -> LayerAnalysisResult:
+    def analyze(self, image_tar_path: str) -> list[Finding]:
         """Analyze layer metadata for an image tarball.
 
         Args:
@@ -39,7 +24,7 @@ class LayerAnalysisProvider(Protocol):
 class NoopLayerAnalysisProvider:
     """Fallback layer analyzer used by the scaffold."""
 
-    def analyze(self, image_tar_path: str) -> LayerAnalysisResult:
+    def analyze(self, image_tar_path: str) -> list[Finding]:
         """Return deterministic empty layer analysis.
 
         Args:
@@ -49,7 +34,7 @@ class NoopLayerAnalysisProvider:
             Empty layer analysis result.
         """
         _ = image_tar_path
-        return LayerAnalysisResult(provider_name="noop-layer", findings=[])
+        return []
 
 
 class TarLayerAnalysisProvider:
@@ -61,7 +46,7 @@ class TarLayerAnalysisProvider:
 
     _PROVIDER_NAME = "tar-layer"
 
-    def analyze(self, image_tar_path: str) -> LayerAnalysisResult:
+    def analyze(self, image_tar_path: str) -> list[Finding]:
         """Analyze metadata in an image tarball.
 
         Args:
@@ -73,21 +58,19 @@ class TarLayerAnalysisProvider:
         try:
             return self._analyze_archive(image_tar_path)
         except (OSError, tarfile.TarError, json.JSONDecodeError, ValueError) as exc:
-            finding = Finding(
-                rule_id="LAY001",
-                title="Layer archive analysis failed",
-                severity=Severity.MEDIUM,
-                source=self._PROVIDER_NAME,
-                detail=f"Unable to parse image archive: {exc}",
-                remediation="Provide a valid Docker image tar archive with manifest metadata.",
-                location=FindingLocation(path=image_tar_path),
-            )
-            return LayerAnalysisResult(
-                provider_name=self._PROVIDER_NAME,
-                findings=[finding],
-            )
+            return [
+                Finding(
+                    rule_id="LAY001",
+                    title="Layer archive analysis failed",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail=f"Unable to parse image archive: {exc}",
+                    remediation="Provide a valid Docker image tar archive with manifest metadata.",
+                    location=FindingLocation(path=image_tar_path),
+                )
+            ]
 
-    def _analyze_archive(self, image_tar_path: str) -> LayerAnalysisResult:
+    def _analyze_archive(self, image_tar_path: str) -> list[Finding]:
         findings: list[Finding] = []
 
         with tarfile.open(image_tar_path, mode="r") as archive:
@@ -104,7 +87,7 @@ class TarLayerAnalysisProvider:
                         location=FindingLocation(path=image_tar_path),
                     )
                 )
-                return LayerAnalysisResult(provider_name=self._PROVIDER_NAME, findings=findings)
+                return findings
 
             manifest_payload = self._extract_json_member(archive, members["manifest.json"])
             manifest_entries = manifest_payload if isinstance(manifest_payload, list) else []
@@ -120,7 +103,7 @@ class TarLayerAnalysisProvider:
                         location=FindingLocation(path=image_tar_path),
                     )
                 )
-                return LayerAnalysisResult(provider_name=self._PROVIDER_NAME, findings=findings)
+                return findings
 
             first_entry = manifest_entries[0]
             layer_paths = first_entry.get("Layers", []) if isinstance(first_entry, dict) else []
@@ -170,7 +153,7 @@ class TarLayerAnalysisProvider:
                         )
                     )
 
-        return LayerAnalysisResult(provider_name=self._PROVIDER_NAME, findings=findings)
+        return findings
 
     @staticmethod
     def _extract_json_member(archive: tarfile.TarFile, member: tarfile.TarInfo) -> object:

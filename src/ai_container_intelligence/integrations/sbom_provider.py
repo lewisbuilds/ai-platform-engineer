@@ -1,8 +1,6 @@
 """SBOM provider abstraction."""
 
-from dataclasses import dataclass
 import json
-from pathlib import Path
 import shutil
 import subprocess
 from typing import Protocol
@@ -10,27 +8,10 @@ from typing import Protocol
 from ai_container_intelligence.models.findings import Finding, FindingLocation, Severity
 
 
-@dataclass(frozen=True)
-class SbomResult:
-    """SBOM generation result metadata.
-
-    Args:
-        provider_name: Integration provider name.
-        success: Whether SBOM generation succeeded.
-        output_path: Optional generated SBOM path.
-        findings: Normalized findings from SBOM validation.
-    """
-
-    provider_name: str
-    success: bool
-    output_path: str | None
-    findings: list[Finding]
-
-
 class SbomProvider(Protocol):
     """Protocol for SBOM generation integrations."""
 
-    def generate(self, image_ref: str) -> SbomResult:
+    def generate(self, image_ref: str) -> list[Finding]:
         """Generate SBOM for an image reference.
 
         Args:
@@ -45,7 +26,7 @@ class SbomProvider(Protocol):
 class NoopSbomProvider:
     """Fallback provider used by the scaffold."""
 
-    def generate(self, image_ref: str) -> SbomResult:
+    def generate(self, image_ref: str) -> list[Finding]:
         """Return a deterministic stub result.
 
         Args:
@@ -55,12 +36,7 @@ class NoopSbomProvider:
             Stub SBOM result.
         """
         _ = image_ref
-        return SbomResult(
-            provider_name="noop-sbom",
-            success=False,
-            output_path=None,
-            findings=[],
-        )
+        return []
 
 
 class SyftSbomProvider:
@@ -71,7 +47,7 @@ class SyftSbomProvider:
     def __init__(self, executable: str = "syft") -> None:
         self._executable = executable
 
-    def generate(self, image_ref: str) -> SbomResult:
+    def generate(self, image_ref: str) -> list[Finding]:
         """Generate CycloneDX JSON SBOM findings using Syft.
 
         Args:
@@ -81,21 +57,16 @@ class SyftSbomProvider:
             Normalized SBOM provider result.
         """
         if shutil.which(self._executable) is None:
-            return SbomResult(
-                provider_name=self._PROVIDER_NAME,
-                success=False,
-                output_path=None,
-                findings=[
-                    Finding(
-                        rule_id="SBOM001",
-                        title="Syft not available",
-                        severity=Severity.MEDIUM,
-                        source=self._PROVIDER_NAME,
-                        detail="Syft executable is not installed or not on PATH.",
-                        remediation="Install Syft and ensure it is available on PATH.",
-                    )
-                ],
-            )
+            return [
+                Finding(
+                    rule_id="SBOM001",
+                    title="Syft not available",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail="Syft executable is not installed or not on PATH.",
+                    remediation="Install Syft and ensure it is available on PATH.",
+                )
+            ]
 
         command = [self._executable, image_ref, "-o", "cyclonedx-json"]
         completed = subprocess.run(
@@ -106,50 +77,34 @@ class SyftSbomProvider:
         )
         if completed.returncode != 0:
             stderr = completed.stderr.strip() or "Syft failed without stderr output."
-            return SbomResult(
-                provider_name=self._PROVIDER_NAME,
-                success=False,
-                output_path=None,
-                findings=[
-                    Finding(
-                        rule_id="SBOM002",
-                        title="Syft execution failed",
-                        severity=Severity.MEDIUM,
-                        source=self._PROVIDER_NAME,
-                        detail=stderr,
-                        remediation="Verify the image reference and Syft runtime configuration.",
-                        location=FindingLocation(path=image_ref),
-                    )
-                ],
-            )
+            return [
+                Finding(
+                    rule_id="SBOM002",
+                    title="Syft execution failed",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail=stderr,
+                    remediation="Verify the image reference and Syft runtime configuration.",
+                    location=FindingLocation(path=image_ref),
+                )
+            ]
 
         try:
             payload = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
-            return SbomResult(
-                provider_name=self._PROVIDER_NAME,
-                success=False,
-                output_path=None,
-                findings=[
-                    Finding(
-                        rule_id="SBOM003",
-                        title="Invalid Syft JSON output",
-                        severity=Severity.MEDIUM,
-                        source=self._PROVIDER_NAME,
-                        detail=f"Unable to parse Syft output: {exc}",
-                        remediation="Ensure Syft returns valid cyclonedx-json output.",
-                        location=FindingLocation(path=image_ref),
-                    )
-                ],
-            )
+            return [
+                Finding(
+                    rule_id="SBOM003",
+                    title="Invalid Syft JSON output",
+                    severity=Severity.MEDIUM,
+                    source=self._PROVIDER_NAME,
+                    detail=f"Unable to parse Syft output: {exc}",
+                    remediation="Ensure Syft returns valid cyclonedx-json output.",
+                    location=FindingLocation(path=image_ref),
+                )
+            ]
 
-        findings = self._normalize_findings(payload=payload, image_ref=image_ref)
-        return SbomResult(
-            provider_name=self._PROVIDER_NAME,
-            success=True,
-            output_path=str(Path(f"{image_ref}.syft.cdx.json")),
-            findings=findings,
-        )
+        return self._normalize_findings(payload=payload, image_ref=image_ref)
 
     def _normalize_findings(self, payload: object, image_ref: str) -> list[Finding]:
         if not isinstance(payload, dict):

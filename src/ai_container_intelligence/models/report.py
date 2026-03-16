@@ -6,19 +6,6 @@ from ai_container_intelligence.models.findings import Finding, Severity, finding
 
 
 @dataclass(frozen=True)
-class ReportSection:
-    """A markdown report section.
-
-    Args:
-        title: Section heading.
-        body: Section body in markdown-safe text.
-    """
-
-    title: str
-    body: str
-
-
-@dataclass(frozen=True)
 class MarkdownReport:
     """Complete markdown report output.
 

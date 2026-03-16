@@ -70,12 +70,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--image-tar", required=False, help="Optional path to image tarball")
     parser.add_argument(
-        "--output-format",
-        default="markdown",
-        choices=["markdown"],
-        help="Output format. Version 1 supports markdown.",
-    )
-    parser.add_argument(
         "--output",
         required=False,
         help="Optional output file path. If omitted, output is written to stdout.",

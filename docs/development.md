@@ -38,7 +38,6 @@ Current CLI contract:
 - provider profile: `--provider-profile real|noop` (default `real`)
 - policy profile: `--policy-profile strict|relaxed` (default `strict`)
 - policy gate: `--fail-on-policy` (returns exit code `3` when blocking findings are present)
-- output format: `markdown`
 - output destination: stdout or `--output <file>`
 
 Analyze multiple Dockerfiles in one run:
