@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 from typing import Final
 
+from ai_container_intelligence import __version__
 from ai_container_intelligence.pipeline import run_pipeline
 
 
@@ -55,6 +56,11 @@ def build_parser() -> argparse.ArgumentParser:
         Configured argument parser.
     """
     parser = argparse.ArgumentParser(description="Run AI Container Intelligence pipeline")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
     parser.add_argument("--dockerfile", required=True, help="Path to Dockerfile")
     parser.add_argument("--image-tar", required=False, help="Optional path to image tarball")
     parser.add_argument(
