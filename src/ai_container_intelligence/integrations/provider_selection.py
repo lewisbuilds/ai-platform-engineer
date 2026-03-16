@@ -65,7 +65,11 @@ def select_providers(
         raise ValueError(f"Unsupported provider profile: {profile}")
 
     return ProviderSelection(
-        layer_provider=layer_provider or default_layer,
-        sbom_provider=sbom_provider or default_sbom,
-        vulnerability_provider=vulnerability_provider or default_vulnerability,
+        layer_provider=layer_provider if layer_provider is not None else default_layer,
+        sbom_provider=sbom_provider if sbom_provider is not None else default_sbom,
+        vulnerability_provider=(
+            vulnerability_provider
+            if vulnerability_provider is not None
+            else default_vulnerability
+        ),
     )

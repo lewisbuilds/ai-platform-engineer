@@ -1,5 +1,7 @@
 """Unit tests for centralized provider selection."""
 
+from typing import Any
+
 from ai_container_intelligence.integrations.layer_analysis_provider import (
     NoopLayerAnalysisProvider,
     TarLayerAnalysisProvider,
@@ -10,6 +12,17 @@ from ai_container_intelligence.integrations.vuln_scan_provider import (
     NoopVulnerabilityScanProvider,
     TrivyVulnerabilityScanProvider,
 )
+
+
+class _FalsyLayerProvider:
+    """Custom provider that is falsy but still valid for explicit injection."""
+
+    def __bool__(self) -> bool:
+        return False
+
+    def analyze(self, image_tar_path: str) -> list[Any]:
+        _ = image_tar_path
+        return []
 
 
 def test_select_providers_real_profile_uses_real_adapters() -> None:
@@ -31,5 +44,12 @@ def test_select_providers_noop_profile_uses_noop_adapters() -> None:
 def test_select_providers_explicit_override_takes_precedence() -> None:
     """Honor explicit provider injection regardless of profile defaults."""
     custom_layer = NoopLayerAnalysisProvider()
+    selected = select_providers(profile="real", layer_provider=custom_layer)
+    assert selected.layer_provider is custom_layer
+
+
+def test_select_providers_falsy_explicit_override_takes_precedence() -> None:
+    """Honor explicit provider injection even when provider evaluates as falsy."""
+    custom_layer = _FalsyLayerProvider()
     selected = select_providers(profile="real", layer_provider=custom_layer)
     assert selected.layer_provider is custom_layer
