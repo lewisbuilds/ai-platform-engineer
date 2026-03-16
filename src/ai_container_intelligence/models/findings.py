@@ -2,7 +2,10 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final
+from typing import Final, TypeAlias
+
+
+EvidenceValue: TypeAlias = str | int | float | bool
 
 
 class Severity(str, Enum):
@@ -55,6 +58,7 @@ class Finding:
         source: Logical source module or integration name.
         detail: Primary finding detail message.
         remediation: Actionable recommendation.
+        evidence: Optional structured evidence map.
         location: Optional location metadata.
         disposition: Policy decision for CI behavior.
     """
@@ -65,6 +69,7 @@ class Finding:
     source: str
     detail: str
     remediation: str
+    evidence: dict[str, EvidenceValue] | None = None
     location: FindingLocation | None = None
     disposition: FindingDisposition = FindingDisposition.ADVISORY
 
