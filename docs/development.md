@@ -72,6 +72,16 @@ Targeted tests for container logic:
 pytest tests/unit/test_dockerfile_review.py tests/unit/test_pipeline.py tests/integration/test_cli_local.py
 ```
 
+Detection-quality baseline tests (golden corpus + tracked blind spot):
+
+```bash
+pytest tests/unit/test_detection_golden_corpus.py tests/unit/test_detection_known_blind_spots.py
+```
+
+Notes:
+- `test_detection_golden_corpus.py` validates expected and non-expected findings against curated fixture Dockerfiles.
+- `test_detection_known_blind_spots.py` tracks parser limitations as expected-failure tests so known gaps stay visible over time.
+
 ## Security Checks
 
 Run static security scan locally:
