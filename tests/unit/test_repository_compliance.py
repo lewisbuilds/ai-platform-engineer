@@ -1,4 +1,4 @@
-"""Repository compliance tests protecting intentional v1 design constraints."""
+"""Repository compliance tests protecting intentional v2 design constraints."""
 
 from pathlib import Path
 from typing import Final
@@ -7,6 +7,7 @@ from typing import Final
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[2]
 
 PRIMARY_WORKFLOW_NAME: Final[str] = "pr-container-intelligence.yml"
+APPROVED_WORKFLOW_NAMES: Final[set[str]] = {PRIMARY_WORKFLOW_NAME}
 REQUIRED_COPILOT_ASSETS: Final[set[Path]] = {
     Path("agents/container-review.agent.md"),
     Path("instructions/container-engineering-standards.instructions.md"),
@@ -15,6 +16,8 @@ REQUIRED_COPILOT_ASSETS: Final[set[Path]] = {
 FORBIDDEN_SOURCE_PATHS: Final[set[Path]] = {
     Path("src/ai_container_intelligence/github"),
     Path("src/ai_container_intelligence/rules"),
+    Path("src/ai_container_intelligence/compliance"),
+    Path("src/ai_container_intelligence/policy_engine"),
 }
 APPROVED_TOP_LEVEL_SOURCE_ENTRIES: Final[set[str]] = {
     "__init__.py",
@@ -23,6 +26,7 @@ APPROVED_TOP_LEVEL_SOURCE_ENTRIES: Final[set[str]] = {
     "integrations",
     "models",
     "pipeline.py",
+    "policy",
     "reporting",
 }
 FORBIDDEN_CLI_IMPORT_PREFIXES: Final[tuple[str, ...]] = (
@@ -31,7 +35,12 @@ FORBIDDEN_CLI_IMPORT_PREFIXES: Final[tuple[str, ...]] = (
     "ai_container_intelligence.reporting",
     "ai_container_intelligence.github",
     "ai_container_intelligence.rules",
+    "ai_container_intelligence.policy",
 )
+POLICY_EVALUATION_CALL_ALLOWLIST: Final[set[Path]] = {
+    Path("src/ai_container_intelligence/pipeline.py"),
+    Path("src/ai_container_intelligence/policy/evaluator.py"),
+}
 
 
 def _read_primary_workflow() -> str:
@@ -54,7 +63,9 @@ def test_github_actions_workflow_minimality() -> None:
         for path in workflows_dir.iterdir()
         if path.is_file() and path.suffix.lower() in {".yml", ".yaml"}
     }
-    assert discovered == {PRIMARY_WORKFLOW_NAME}
+    assert PRIMARY_WORKFLOW_NAME in discovered
+    unexpected = discovered - APPROVED_WORKFLOW_NAMES
+    assert not unexpected, f"Unexpected workflow files detected: {sorted(unexpected)}"
 
 
 def test_github_actions_permissions_are_least_privilege() -> None:
@@ -115,7 +126,7 @@ def test_forbidden_speculative_modules_do_not_exist() -> None:
 
 
 def test_core_package_boundaries_match_approved_v1_set() -> None:
-    """Ensure top-level package layout stays within approved v1 boundaries."""
+    """Ensure top-level package layout stays within approved v2 boundaries."""
     package_root = REPO_ROOT / "src" / "ai_container_intelligence"
     discovered = {
         path.name
@@ -123,6 +134,39 @@ def test_core_package_boundaries_match_approved_v1_set() -> None:
         if path.name != "__pycache__"
     }
     assert discovered == APPROVED_TOP_LEVEL_SOURCE_ENTRIES
+
+
+def test_provider_implementations_stay_within_integrations_package() -> None:
+    """Ensure provider implementation modules remain scoped to integrations package."""
+    source_root = REPO_ROOT / "src" / "ai_container_intelligence"
+    provider_files = {
+        path.relative_to(REPO_ROOT)
+        for path in source_root.rglob("*_provider.py")
+    }
+
+    outside_integrations = sorted(
+        str(path)
+        for path in provider_files
+        if path.parts[:3] != ("src", "ai_container_intelligence", "integrations")
+    )
+    assert not outside_integrations, (
+        "Provider implementation modules must stay under integrations/: "
+        f"{outside_integrations}"
+    )
+
+
+def test_policy_evaluation_remains_centralized() -> None:
+    """Ensure policy evaluation is defined centrally and only invoked from pipeline."""
+    source_root = REPO_ROOT / "src" / "ai_container_intelligence"
+    occurrences: set[Path] = set()
+
+    for path in source_root.rglob("*.py"):
+        relative = path.relative_to(REPO_ROOT)
+        text = path.read_text(encoding="utf-8")
+        if "evaluate_findings_policy(" in text:
+            occurrences.add(relative)
+
+    assert occurrences == POLICY_EVALUATION_CALL_ALLOWLIST
 
 
 def test_cli_module_stays_thin_and_pipeline_oriented() -> None:
