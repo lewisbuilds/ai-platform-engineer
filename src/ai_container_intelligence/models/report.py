@@ -103,6 +103,7 @@ def create_analysis_report(
     Args:
         title: Report title.
         findings: Unordered finding list.
+        policy_summary: Optional policy impact summary for CI and reporting context.
 
     Returns:
         Analysis report with sorted findings and summary.
