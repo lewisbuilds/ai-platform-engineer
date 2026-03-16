@@ -1,0 +1,45 @@
+{
+  "threshold": 0.90,
+  "cases": [
+    {
+      "fixture_name": "good-pinned-nonroot.Dockerfile",
+      "assertions": [
+        {"type": "instruction_count", "equals": 5},
+        {"type": "opcode_at_index", "index": 0, "equals": "FROM"},
+        {"type": "opcode_at_index", "index": 4, "equals": "CMD"},
+        {"type": "opcode_count", "opcode": "FROM", "equals": 1},
+        {"type": "opcode_count", "opcode": "USER", "equals": 1}
+      ]
+    },
+    {
+      "fixture_name": "realworld-multistage-nonroot.Dockerfile",
+      "assertions": [
+        {"type": "instruction_count", "equals": 9},
+        {"type": "opcode_count", "opcode": "FROM", "equals": 2},
+        {"type": "opcode_count", "opcode": "RUN", "equals": 1},
+        {"type": "opcode_count", "opcode": "USER", "equals": 1},
+        {"type": "opcode_at_index", "index": 8, "equals": "CMD"}
+      ]
+    },
+    {
+      "fixture_name": "realworld-arg-from-pinned.Dockerfile",
+      "assertions": [
+        {"type": "instruction_count", "equals": 6},
+        {"type": "opcode_at_index", "index": 0, "equals": "ARG"},
+        {"type": "opcode_at_index", "index": 1, "equals": "FROM"},
+        {"type": "opcode_count", "opcode": "ARG", "equals": 1},
+        {"type": "opcode_count", "opcode": "FROM", "equals": 1}
+      ]
+    },
+    {
+      "fixture_name": "realworld-multiline-run-cleanup.Dockerfile",
+      "assertions": [
+        {"type": "instruction_count", "equals": 4},
+        {"type": "opcode_count", "opcode": "FROM", "equals": 1},
+        {"type": "opcode_count", "opcode": "RUN", "equals": 1},
+        {"type": "opcode_count", "opcode": "USER", "equals": 1},
+        {"type": "opcode_at_index", "index": 3, "equals": "CMD"}
+      ]
+    }
+  ]
+}

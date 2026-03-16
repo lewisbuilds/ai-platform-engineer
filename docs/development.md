@@ -119,6 +119,12 @@ Parser accuracy metric guidance:
 - Keep metric simple and transparent.
 - Preferred shape: passed parser assertions / total parser assertions.
 - Enforce minimum threshold against a documented baseline.
+- Parser metric source: `tests/fixtures/golden/parser_fidelity_cases.json`.
+- Metric enforcement test: `tests/unit/test_parser_accuracy_metric.py`.
+
+CI order for parser truth signal:
+1. Run parser fidelity subset (`test_parser_accuracy_metric.py` + blind-spot tracker).
+2. Run full suite.
 
 ## Security Checks
 
