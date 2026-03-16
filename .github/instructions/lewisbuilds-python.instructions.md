@@ -1,3 +1,4 @@
+---
 description: 'lewisbuilds Python coding standards and best practices - mandatory compliance required'
 applyTo: '**/*.py'
 ---
