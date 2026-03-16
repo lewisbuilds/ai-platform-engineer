@@ -1,0 +1,46 @@
+.git
+.gitignore
+.github
+
+# Local environments and IDE state
+.venv
+venv
+env
+.vscode
+.idea
+
+# Python caches and build outputs
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage*
+htmlcov/
+build/
+dist/
+
+# Logs and temp artifacts
+*.log
+artifacts/
+
+# Repository content not required for runtime image
+tests/
+examples/
+docs/
+agents/
+instructions/
+skills/
+
+# Secrets and local config
+.env
+.env.*
+*.pem
+*.key
