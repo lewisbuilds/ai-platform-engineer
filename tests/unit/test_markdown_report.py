@@ -203,3 +203,39 @@ def test_render_markdown_report_policy_outcome_stays_easy_to_scan() -> None:
     assert "- Outcome: FAIL" in markdown.content
     assert "## Policy Impact" in markdown.content
     assert "- CI recommendation: FAIL" in markdown.content
+
+
+def test_render_markdown_report_preserves_evidence_after_policy_evaluation() -> None:
+    """Ensure policy evaluation does not drop structured evidence before rendering."""
+    findings = [
+        Finding(
+            rule_id="VULN-CVE-2026-9999",
+            title="Critical library vulnerability",
+            severity=Severity.CRITICAL,
+            source="trivy",
+            detail="Known critical CVE detected in runtime dependency.",
+            remediation="Upgrade to a fixed version and rebuild image.",
+            location=FindingLocation(path="image:example"),
+            evidence={
+                "package": "libssl",
+                "cvss": 9.9,
+                "fixed_version": "3.0.1",
+            },
+        )
+    ]
+    policy_evaluation = evaluate_findings_policy(findings)
+    internal_report = create_analysis_report(
+        "AI Container Intelligence Report",
+        policy_evaluation.findings,
+        policy_summary=policy_evaluation.summary,
+    )
+
+    markdown = render_markdown_report(internal_report)
+
+    assert "## Blocking Findings" in markdown.content
+    assert "VULN-CVE-2026-9999 - Critical library vulnerability" in markdown.content
+    assert "- Evidence:" in markdown.content
+    assert "- package: libssl" in markdown.content
+    assert "- cvss: 9.9" in markdown.content
+    assert "- fixed_version: 3.0.1" in markdown.content
+    assert "- core evidence: cvss=9.9, fixed_version=3.0.1, package=libssl" in markdown.content

@@ -80,6 +80,7 @@ def _replace_finding(
         source=finding.source,
         detail=finding.detail,
         remediation=finding.remediation,
+        evidence=finding.evidence,
         location=finding.location,
         disposition=disposition,
     )
