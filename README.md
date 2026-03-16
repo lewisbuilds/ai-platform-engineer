@@ -1,148 +1,105 @@
 ﻿# AI Container Intelligence
 
-## 1) Project Overview
-AI Container Intelligence is a local-first Python toolchain for reviewing Dockerfiles and producing deterministic markdown reports suitable for pull-request workflows.
+## Problem This Project Solves
+Teams often have Dockerfile checks spread across ad-hoc scripts, local habits, and CI snippets. The result is inconsistent policy outcomes and hard-to-explain failures.
 
-This repository is intentionally minimal v2: one clear analysis path, one thin CLI entrypoint, one primary CI workflow, centralized policy evaluation, and enforced repository boundaries.
+This project provides one minimal, deterministic path for container policy analysis:
+- analyze Dockerfiles,
+- evaluate policy centrally,
+- generate a clear markdown report,
+- enforce the same behavior locally and in CI.
 
-## 2) Why This Exists
-Container checks often start as ad-hoc scripts and then become hard to maintain. This project exists to show a practical baseline that is:
-- easy to run locally,
-- easy to enforce in CI,
-- easy to extend through typed integration seams,
-- hard to overgrow accidentally.
+## Why Container Policy Analysis Matters
+Container images are part of the deployment boundary. Weak Dockerfile practices can introduce avoidable risk before runtime.
 
-The design favors the smallest useful architecture over broad feature coverage.
+Policy analysis gives an auditable decision point before merge:
+- identify risky build/runtime patterns early,
+- classify findings as advisory or blocking,
+- make CI outcomes explainable to reviewers,
+- reduce production surprises caused by image hardening gaps.
 
-## 3) Core Capabilities in v2
-- Dockerfile-focused static review with deterministic findings.
-- Normalized report model and markdown PR-style rendering.
-- Thin CLI (`aci`) for local and CI execution.
-- Multi-target execution from one command (`--dockerfile` accepts one or more paths).
-- Pipeline orchestration with centralized policy-backed severity evaluation.
-- Integration points (contracts + real/no-op providers) for:
-	- image layer analysis,
-	- SBOM generation,
-	- vulnerability scanning.
-- Built-in policy profiles:
-	- `strict`: blocks `critical` findings and explicit `DF004` root-runtime violations.
-	- `relaxed`: blocks `critical` findings only.
-- Optional CI/local policy gate via `--fail-on-policy` (exit code `3` on blocking findings).
-- Minimal PR GitHub Actions automation with test and security gates.
-- Compliance tests that enforce maintainable architectural boundaries.
+## Minimal, Explainable Design
+The architecture is intentionally small so each responsibility is obvious.
 
-## 4) Architecture Summary
-Runtime flow:
-1. CLI validates inputs.
-2. Pipeline runs Dockerfile analysis.
-3. Integration providers are selected by profile (`real|noop`) and invoked through typed seams.
-4. Findings are normalized into a shared report model.
-5. Centralized policy evaluation assigns advisory/blocking dispositions.
-6. Markdown report is rendered and written to stdout or file.
+```text
+CLI (thin)
+  -> Pipeline orchestrator
+      -> Analysis + Providers
+          -> Policy evaluation
+              -> Markdown report
+```
 
-Key files:
-- Pipeline orchestration: [src/ai_container_intelligence/pipeline.py](src/ai_container_intelligence/pipeline.py)
-- CLI entrypoint: [src/ai_container_intelligence/cli/main.py](src/ai_container_intelligence/cli/main.py)
-- Dockerfile review logic: [src/ai_container_intelligence/analysis/dockerfile_review.py](src/ai_container_intelligence/analysis/dockerfile_review.py)
-- Markdown rendering: [src/ai_container_intelligence/reporting/markdown_report.py](src/ai_container_intelligence/reporting/markdown_report.py)
+Key properties:
+- one CLI entrypoint,
+- one orchestrator,
+- provider integration behind typed seams,
+- one policy evaluator as decision source,
+- deterministic report output.
 
-For deeper detail, see [docs/architecture.md](docs/architecture.md).
+See [docs/architecture.md](docs/architecture.md) for full details.
 
-## 5) Repo Structure
-- [src/ai_container_intelligence](src/ai_container_intelligence): production package
-	- `analysis/`: Dockerfile analysis logic
-	- `integrations/`: provider contracts and real/no-op adapters
-	- `models/`: typed contracts (findings, report)
-	- `reporting/`: output rendering
-	- `cli/`: thin command surface
-	- `pipeline.py`: orchestration
-- [tests](tests): unit and integration tests, including repository compliance checks
-- [examples](examples): sample Dockerfiles and generated reports
-- [docs](docs): architecture, development, and Copilot customization docs
-- [agents](agents), [instructions](instructions), [skills](skills): Copilot customization assets used in this repo
+## CI Enforcement Model
+Primary workflow: [.github/workflows/pr-container-intelligence.yml](.github/workflows/pr-container-intelligence.yml)
 
-## 6) Local Usage
+For relevant pull requests, CI:
+1. installs and validates the project,
+2. runs security and test gates,
+3. runs parser fidelity gates before full suite,
+4. analyzes changed Dockerfiles (or all tracked Dockerfiles when policy files change),
+5. publishes markdown report artifacts,
+6. fails when policy blocking conditions are met (`--fail-on-policy`, exit code `3`).
+
+This keeps enforcement deterministic and reviewable.
+
+## Detection Credibility: Golden Corpus
+Detection quality is guarded by curated fixtures and expected outcomes in [tests/fixtures/golden/corpus_cases.json](tests/fixtures/golden/corpus_cases.json).
+
+The corpus ensures credibility by requiring:
+- expected findings for positive cases,
+- expected non-findings for clean cases,
+- real-world style fixtures (not only synthetic examples),
+- explicit coverage checks linking implemented rule IDs to corpus evidence.
+
+This prevents “rule exists but no proof” drift.
+
+## Detection Quality Guard: Parser Accuracy Governance
+Parser behavior is governed separately from policy outcome rendering.
+
+Inputs and checks:
+- parser fidelity dataset: [tests/fixtures/golden/parser_fidelity_cases.json](tests/fixtures/golden/parser_fidelity_cases.json)
+- metric test: [tests/unit/test_parser_accuracy_metric.py](tests/unit/test_parser_accuracy_metric.py)
+- known blind spots (explicitly tracked): [tests/unit/test_detection_known_blind_spots.py](tests/unit/test_detection_known_blind_spots.py)
+
+CI runs parser fidelity checks before the full suite to keep parser regressions visible and measurable.
+
+## Quick Start
 Requirements:
 - Python 3.10+
 
-Install and verify:
+Install and validate:
 ```bash
 python -m pip install -e .
 pytest
 ```
 
-Run analysis to stdout:
+Analyze one Dockerfile:
 ```bash
 aci --dockerfile examples/dockerfiles/minimal-secure.Dockerfile
 ```
 
-Run analysis for multiple Dockerfiles in one invocation:
-```bash
-aci --dockerfile examples/dockerfiles/minimal-secure.Dockerfile path/to/another.Dockerfile
-```
-
-Write markdown report to file:
+Write report to file:
 ```bash
 aci --dockerfile examples/dockerfiles/minimal-secure.Dockerfile --output examples/reports/sample-pr-report.md
 ```
 
-CLI notes:
-- `--dockerfile` is required and accepts one or more paths.
-- `--image-tar` is optional and used only for integration provider paths.
-- `--provider-profile` supports `real` and `noop`.
-- `--policy-profile` supports `strict` and `relaxed`.
-- `--fail-on-policy` enables explicit blocking exit behavior (exit code `3`).
-- `--output` is optional; without it, report content is printed to stdout.
+Enable policy gate:
+```bash
+aci --dockerfile examples/dockerfiles/minimal-secure.Dockerfile --fail-on-policy
+```
 
-## 7) Example Analysis Flow
-Realistic local flow for a PR candidate Dockerfile:
-1. Edit or add a Dockerfile.
-2. Run:
-	 ```bash
-	 aci --dockerfile path/to/Dockerfile --output artifacts/report.md
-	 ```
-3. Review the markdown findings in `artifacts/report.md`.
-4. Iterate on Dockerfile changes and rerun until findings are acceptable.
-5. Commit with local checks enabled (see [docs/development.md](docs/development.md) for managed hook setup).
-
-This mirrors CI behavior while keeping feedback fast on a developer workstation.
-
-## 8) GitHub Actions Workflow Behavior
-Primary workflow: [\.github/workflows/pr-container-intelligence.yml](.github/workflows/pr-container-intelligence.yml)
-
-On relevant pull request changes, it:
-1. checks out code and sets up Python 3.10,
-2. installs the package,
-3. runs security checks (Bandit + secret-pattern scan),
-4. runs `pytest`,
-5. analyzes changed Dockerfiles with `aci` (or all Dockerfiles when policy files change; sample fallback for non-PR manual runs),
-6. uploads markdown reports as artifacts,
-7. writes a concise run summary.
-
-## 9) Copilot Customizations Included
-This repository includes minimal Copilot customization assets to keep AI-assisted changes aligned with project boundaries:
-- Agent definition: [agents/container-review.agent.md](agents/container-review.agent.md)
-- Repository instruction: [instructions/container-engineering-standards.instructions.md](instructions/container-engineering-standards.instructions.md)
-- Skill entrypoint: [skills/container-analysis/SKILL.md](skills/container-analysis/SKILL.md)
-
-See [docs/copilot-customizations.md](docs/copilot-customizations.md) for context.
-
-## 10) Design Choices That Reduce Tech Debt
-- Single orchestration path in `pipeline.py` avoids duplicated business logic.
-- Thin CLI prevents command-surface bloat and keeps test scope focused.
-- Typed contracts in `models/` and `integrations/` stabilize interfaces.
-- Deterministic markdown output keeps CI and review behavior predictable.
-- One primary workflow reduces CI sprawl.
-- Compliance tests enforce boundaries so architectural drift fails fast.
-
-## 11) Out of Scope for v2
-Intentionally excluded in this repository version:
-- database persistence,
-- web UI,
-- Kubernetes-native automation,
-- release/publishing automation,
-- dynamic plugin loading,
-- remote scanner orchestration frameworks.
-
-These are excluded to keep v2 small, understandable, and maintainable.
+## Repository Map
+- [src/ai_container_intelligence](src/ai_container_intelligence): analysis, pipeline, policy, reporting, CLI
+- [tests](tests): unit, integration, governance, golden corpus checks
+- [docs](docs): architecture and developer workflow
+- [examples](examples): sample Dockerfiles and reports
 

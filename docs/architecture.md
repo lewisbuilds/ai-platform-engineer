@@ -1,102 +1,109 @@
 # Architecture (v2)
 
-## What This Repository Does
+## Design Goals
+- simplicity: minimum moving parts for policy analysis,
+- minimal architecture: one execution path, one policy decision layer,
+- explainable design: each layer has one clear responsibility.
 
-Version 2 provides a deterministic, local-first container analysis flow centered
-on Dockerfile review and markdown report output.
+## System Shape
 
-The system is designed to be executable from both:
-- local development via `aci`
-- CI via GitHub Actions
+```text
+CLI (thin)
+  -> Pipeline orchestrator
+      -> Analysis + Providers (isolated)
+          -> Policy evaluation layer
+              -> Reporting layer
+```
 
-## Architectural Principles
+## Thin CLI
+Location: [src/ai_container_intelligence/cli/main.py](src/ai_container_intelligence/cli/main.py)
 
-- single Python package
-- composition over inheritance
-- strict separation between analysis, orchestration, rendering, and execution
-- deterministic output for stable CI and tests
-- extension points through typed protocols, not dynamic runtime frameworks
-- centralized policy evaluation as the single source of blocking/advisory decisions
+Responsibilities:
+- parse and validate arguments,
+- call pipeline entrypoint,
+- map policy gate outcomes to exit codes.
 
-## Package Layout
+Non-responsibilities:
+- no rule evaluation logic,
+- no provider business logic,
+- no report formatting logic.
 
-`src/ai_container_intelligence/`
+Why this matters:
+- command surface stays stable,
+- tests for orchestration and policy remain focused,
+- CI and local execution stay consistent.
 
-- `analysis/`
-  - pure analysis logic
-  - current concrete implementation: Dockerfile review
-- `integrations/`
-  - protocol interfaces and concrete provider adapters
-  - includes real local adapters and deterministic noop stubs
-- `models/`
-  - shared typed contracts (`Finding`, `AnalysisReport`, etc.)
-  - canonical normalization point for output shape
-- `reporting/`
-  - markdown rendering only
-- `cli/`
-  - input validation + argument handling + exit code mapping
-  - delegates to pipeline, no business logic
-- `pipeline.py`
-  - orchestration layer
-  - gathers analysis results and renders final report
+## Pipeline Orchestrator
+Location: [src/ai_container_intelligence/pipeline.py](src/ai_container_intelligence/pipeline.py)
 
-## Runtime Flow
+Responsibilities:
+- execute analysis flow for one or more Dockerfiles,
+- select provider implementations by profile,
+- collect and normalize findings,
+- invoke policy evaluator,
+- pass evaluated findings to report renderer.
 
-1. CLI validates input arguments and paths.
-2. Pipeline runs Dockerfile analysis.
-3. Pipeline optionally invokes provider interfaces when inputs are present.
-4. Findings are normalized and ordered deterministically.
-5. Markdown report is rendered.
-6. CLI writes output to stdout or file.
+The orchestrator is the only place where layer composition happens.
 
-Policy flow:
-1. Raw findings are produced by analysis and integration providers.
-2. `policy/evaluator.py` applies profile-backed policy (`strict|relaxed`).
-3. Findings are labeled advisory or blocking.
-4. Policy summary is attached to the report model and rendered into markdown.
+## Provider Isolation
+Location: [src/ai_container_intelligence/integrations](src/ai_container_intelligence/integrations)
 
-CLI targeting flow:
-1. CLI accepts one-or-more Dockerfile targets in a single run.
-2. Pipeline is executed once per target.
-3. Output remains deterministic for single and multi-target rendering.
+Pattern:
+- typed provider interfaces,
+- concrete adapters for `real` and `noop` profiles,
+- no provider-specific behavior leaked into CLI.
 
-## GitHub Actions Integration
+Why isolation exists:
+- deterministic tests can use noop providers,
+- runtime adapters can evolve without changing pipeline contract,
+- integration complexity stays outside policy and reporting layers.
 
-Workflow file:
-- `.github/workflows/pr-container-intelligence.yml`
+## Policy Evaluation Layer
+Location: [src/ai_container_intelligence/policy/evaluator.py](src/ai_container_intelligence/policy/evaluator.py)
 
-Integration model:
-- workflow calls `aci` directly
-- no duplicated analysis logic in YAML
-- changed Dockerfiles are discovered with `git diff`
-- reports are uploaded as artifacts
+Responsibilities:
+- convert raw findings into policy outcomes,
+- apply selected profile (`strict|relaxed`),
+- classify findings as advisory or blocking,
+- generate policy summary used by CLI and reports.
 
-## Version 2 Boundaries
+Design rule:
+- policy decisions are centralized; no duplicate policy logic in CLI, workflow, or renderer.
 
-Intentionally excluded:
-- database persistence
-- API/service layer
-- web UI
-- Kubernetes-native automation
-- dynamic plugin loading
-- release publishing automation
+## Reporting Layer
+Location: [src/ai_container_intelligence/reporting/markdown_report.py](src/ai_container_intelligence/reporting/markdown_report.py)
 
-These are excluded to keep v2 small, testable, and maintainable.
+Responsibilities:
+- render deterministic markdown,
+- show policy outcome summary (PASS/WARN/FAIL),
+- group findings by blocking/advisory disposition,
+- present evidence and remediation text consistently.
 
-## Extension Points (Without Premature Expansion)
+Non-responsibility:
+- no policy decision making.
 
-Use only when there is a concrete need:
+## Governance Testing Strategy
+Governance tests protect architecture and detection quality, not only feature behavior.
 
-1. `integrations/*_provider.py`
-   - add real adapters behind existing protocols
-   - keep pipeline contract stable
-2. `analysis/`
-   - add new rules in focused modules
-   - avoid duplicate checks across files
-3. `reporting/`
-   - add additional output renderer only after a proven consumer exists
-4. CLI options
-   - add arguments only when supported end-to-end by tests and workflow
+Key enforcement areas:
+- repository compliance boundaries (thin CLI, allowed package imports, workflow minimality),
+- corpus governance (fixture quality and representativeness),
+- rule-to-evidence linkage (every implemented rule appears in corpus expected findings),
+- parser fidelity governance (metric threshold + explicit blind-spot tracking).
 
-Extension should follow existing contracts first, then add new contracts only if
-current ones are insufficient.
+Core files:
+- [tests/unit/test_repository_compliance.py](tests/unit/test_repository_compliance.py)
+- [tests/unit/test_detection_corpus_governance.py](tests/unit/test_detection_corpus_governance.py)
+- [tests/unit/test_parser_accuracy_metric.py](tests/unit/test_parser_accuracy_metric.py)
+- [tests/unit/test_detection_known_blind_spots.py](tests/unit/test_detection_known_blind_spots.py)
+
+## Runtime and CI Consistency
+Primary workflow: [.github/workflows/pr-container-intelligence.yml](.github/workflows/pr-container-intelligence.yml)
+
+Workflow model:
+1. run parser fidelity checks,
+2. run full test suite,
+3. analyze changed Dockerfiles,
+4. publish report artifacts.
+
+This preserves one explainable path from local command to CI enforcement.
