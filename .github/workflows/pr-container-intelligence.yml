@@ -7,6 +7,9 @@ on:
       - "**/Dockerfile"
       - "**/Dockerfile.*"
       - "**/*.dockerfile"
+      - "agents/container-review.agent.md"
+      - "instructions/container-engineering-standards.instructions.md"
+      - "skills/container-analysis/SKILL.md"
       - "src/ai_container_intelligence/analysis/**"
       - "src/ai_container_intelligence/integrations/**"
       - "src/ai_container_intelligence/models/**"
@@ -75,23 +78,73 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/reports
 
+          CHANGED_DOCKERFILES=()
+          CHANGED_POLICY_FILES=()
+          TARGET_DOCKERFILES=()
+
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
-            mapfile -t CHANGED_DOCKERFILES < <(
-              git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- \
-                ':(glob)**/Dockerfile' \
-                ':(glob)**/Dockerfile.*' \
-                ':(glob)**/*.dockerfile' || true
+            mapfile -t CHANGED_FILES < <(
+              git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true
             )
+
+            for changed in "${CHANGED_FILES[@]}"; do
+              case "$changed" in
+                *Dockerfile|*Dockerfile.*|*.dockerfile)
+                  CHANGED_DOCKERFILES+=("$changed")
+                  ;;
+                .hadolint.yaml|.dockerignore|agents/container-review.agent.md|instructions/container-engineering-standards.instructions.md|skills/container-analysis/SKILL.md)
+                  CHANGED_POLICY_FILES+=("$changed")
+                  ;;
+              esac
+            done
+
+            if [[ "${#CHANGED_DOCKERFILES[@]}" -gt 0 ]]; then
+              TARGET_DOCKERFILES=("${CHANGED_DOCKERFILES[@]}")
+            elif [[ "${#CHANGED_POLICY_FILES[@]}" -gt 0 ]]; then
+              mapfile -t TARGET_DOCKERFILES < <(
+                git ls-files -- \
+                  ':(glob)**/Dockerfile' \
+                  ':(glob)**/Dockerfile.*' \
+                  ':(glob)**/*.dockerfile' || true
+              )
+            fi
           else
-            CHANGED_DOCKERFILES=()
+            TARGET_DOCKERFILES=("examples/dockerfiles/minimal-secure.Dockerfile")
           fi
 
-          if [[ "${#CHANGED_DOCKERFILES[@]}" -eq 0 ]]; then
-            CHANGED_DOCKERFILES=("examples/dockerfiles/minimal-secure.Dockerfile")
-          fi
+          {
+            echo "# Container Intelligence Target Summary"
+            echo
+            echo "## Changed Dockerfiles"
+            if [[ "${#CHANGED_DOCKERFILES[@]}" -eq 0 ]]; then
+              echo "- (none)"
+            else
+              for file in "${CHANGED_DOCKERFILES[@]}"; do
+                echo "- $file"
+              done
+            fi
+            echo
+            echo "## Changed Container Policy Files"
+            if [[ "${#CHANGED_POLICY_FILES[@]}" -eq 0 ]]; then
+              echo "- (none)"
+            else
+              for file in "${CHANGED_POLICY_FILES[@]}"; do
+                echo "- $file"
+              done
+            fi
+            echo
+            echo "## Analysis Targets"
+            if [[ "${#TARGET_DOCKERFILES[@]}" -eq 0 ]]; then
+              echo "- (none)"
+            else
+              for file in "${TARGET_DOCKERFILES[@]}"; do
+                echo "- $file"
+              done
+            fi
+          } > artifacts/reports/changed-targets-summary.md
 
           {
             echo "## Container Intelligence Report"
@@ -99,7 +152,11 @@ jobs:
             echo "Analyzed Dockerfiles:"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          for dockerfile in "${CHANGED_DOCKERFILES[@]}"; do
+          if [[ "${#TARGET_DOCKERFILES[@]}" -eq 0 ]]; then
+            echo "- (none)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          for dockerfile in "${TARGET_DOCKERFILES[@]}"; do
             safe_name="$(echo "$dockerfile" | tr '/\\' '__' | tr -cd 'A-Za-z0-9._-')"
             output_file="artifacts/reports/${safe_name}.md"
 
@@ -114,6 +171,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: container-intelligence-report
-          path: artifacts/reports/*.md
+          path: |
+            artifacts/reports/*.md
           if-no-files-found: error
           retention-days: 7

@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
 from ai_container_intelligence.integrations.layer_analysis_provider import LayerAnalysisResult
 from ai_container_intelligence.models.findings import Finding, FindingLocation, Severity
 from ai_container_intelligence.pipeline import run_pipeline
@@ -73,3 +75,33 @@ def test_run_pipeline_report_ordering_is_deterministic(tmp_path: Path) -> None:
     first_rule_ids = [item.rule_id for item in first.analysis_report.findings]
     second_rule_ids = [item.rule_id for item in second.analysis_report.findings]
     assert first_rule_ids == second_rule_ids
+
+
+def test_run_pipeline_defaults_to_real_tool_providers(monkeypatch: MonkeyPatch) -> None:
+    """Ensure default provider wiring uses Syft and Trivy adapters via pipeline."""
+    monkeypatch.setattr("ai_container_intelligence.integrations.sbom_provider.shutil.which", lambda _: None)
+    monkeypatch.setattr(
+        "ai_container_intelligence.integrations.vuln_scan_provider.shutil.which",
+        lambda _: None,
+    )
+
+    result = run_pipeline(
+        dockerfile_path="tests/fixtures/Dockerfile.good",
+        image_ref="example:image",
+    )
+
+    rule_ids = {item.rule_id for item in result.analysis_report.findings}
+    assert "SBOM001" in rule_ids
+    assert "VULN001" in rule_ids
+
+
+def test_run_pipeline_noop_profile_uses_noop_providers() -> None:
+    """Ensure noop profile avoids real adapter findings and remains deterministic."""
+    result = run_pipeline(
+        dockerfile_path="tests/fixtures/Dockerfile.good",
+        image_ref="example:image",
+        provider_profile="noop",
+    )
+    rule_ids = {item.rule_id for item in result.analysis_report.findings}
+    assert "SBOM001" not in rule_ids
+    assert "VULN001" not in rule_ids

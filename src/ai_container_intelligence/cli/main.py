@@ -74,6 +74,12 @@ def build_parser() -> argparse.ArgumentParser:
         required=False,
         help="Optional output file path. If omitted, output is written to stdout.",
     )
+    parser.add_argument(
+        "--provider-profile",
+        default="real",
+        choices=["real", "noop"],
+        help="Provider profile selection. Use 'real' for local tool adapters or 'noop' for deterministic stubs.",
+    )
     return parser
 
 
@@ -107,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         result = run_pipeline(
             dockerfile_path=args.dockerfile,
             image_tar_path=args.image_tar,
+            provider_profile=args.provider_profile,
         )
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"Execution error: {exc}", file=sys.stderr)

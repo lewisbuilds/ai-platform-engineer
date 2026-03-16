@@ -12,6 +12,7 @@ def test_build_parser_defaults() -> None:
     parser = cli_main.build_parser()
     args = parser.parse_args(["--dockerfile", "tests/fixtures/Dockerfile.good"])
     assert args.output_format == "markdown"
+    assert args.provider_profile == "real"
     assert args.image_tar is None
     assert args.output is None
 
@@ -64,3 +65,33 @@ def test_main_runtime_error_returns_runtime_exit_code(
     err = capsys.readouterr().err
     assert code == cli_main.EXIT_RUNTIME_ERROR
     assert "Execution error:" in err
+
+
+def test_main_passes_provider_profile_to_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ensure CLI forwards provider profile without adding orchestration logic."""
+    captured: dict[str, str] = {}
+
+    def _capture_pipeline(*_args: object, **kwargs: object) -> object:
+        profile = kwargs.get("provider_profile")
+        if isinstance(profile, str):
+            captured["provider_profile"] = profile
+
+        class _Result:
+            report = type("_Report", (), {"content": "# AI Container Intelligence Report"})()
+
+        return _Result()
+
+    monkeypatch.setattr(cli_main, "run_pipeline", _capture_pipeline)
+    code = cli_main.main(
+        [
+            "--dockerfile",
+            "tests/fixtures/Dockerfile.good",
+            "--provider-profile",
+            "noop",
+        ]
+    )
+
+    assert code == cli_main.EXIT_SUCCESS
+    assert captured["provider_profile"] == "noop"

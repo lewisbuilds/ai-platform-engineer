@@ -71,6 +71,19 @@ def test_github_actions_includes_security_checks() -> None:
     assert "Potential secret-like material detected in repository." in workflow_text
 
 
+def test_github_actions_targets_changed_container_files() -> None:
+    """Ensure workflow keeps PR changed-target analysis behavior."""
+    workflow_text = _read_primary_workflow()
+    assert "git diff --name-only \"$BASE_SHA\" \"$HEAD_SHA\"" in workflow_text
+    assert "CHANGED_DOCKERFILES" in workflow_text
+    assert "CHANGED_POLICY_FILES" in workflow_text
+    assert "changed-targets-summary.md" in workflow_text
+    assert ".hadolint.yaml" in workflow_text
+    assert ".dockerignore" in workflow_text
+    assert "instructions/container-engineering-standards.instructions.md" in workflow_text
+    assert "skills/container-analysis/SKILL.md" in workflow_text
+
+
 def test_pre_commit_security_hook_exists_and_has_required_checks() -> None:
     """Ensure managed pre-commit hook enforces local security checks."""
     hook_path = REPO_ROOT / ".githooks" / "pre-commit"
