@@ -41,6 +41,7 @@ def test_policy_evaluator_overrides_severity_by_rule_id() -> None:
     assert result.findings[0].disposition is FindingDisposition.ADVISORY
     assert result.summary.advisory == 1
     assert result.summary.blocking == 0
+    assert result.summary.blocking_rule_ids == ()
     assert result.summary.should_fail is False
 
 
@@ -63,6 +64,7 @@ def test_policy_evaluator_marks_blocking_for_threshold_and_rule_override() -> No
     assert by_id["DF005"].disposition is FindingDisposition.BLOCKING
     assert result.summary.blocking == 2
     assert result.summary.advisory == 0
+    assert result.summary.blocking_rule_ids == ("DF002", "DF005")
     assert result.summary.should_fail is True
 
 
@@ -71,7 +73,29 @@ def test_resolve_policy_config_strict_and_relaxed_thresholds() -> None:
     strict_policy = resolve_policy_config("strict")
     relaxed_policy = resolve_policy_config("relaxed")
 
-    assert Severity.HIGH in strict_policy.blocking_severities
+    assert Severity.HIGH not in strict_policy.blocking_severities
     assert Severity.CRITICAL in strict_policy.blocking_severities
     assert Severity.HIGH not in relaxed_policy.blocking_severities
     assert Severity.CRITICAL in relaxed_policy.blocking_severities
+    assert "DF004" in strict_policy.blocking_rule_ids
+    assert not relaxed_policy.blocking_rule_ids
+
+
+def test_policy_evaluator_strict_marks_root_runtime_rule_blocking() -> None:
+    """Ensure strict policy blocks explicit root-runtime finding even without critical severity."""
+    findings = [_finding("DF004", Severity.HIGH)]
+
+    result = evaluate_findings_policy(findings=findings, policy=resolve_policy_config("strict"))
+
+    assert result.findings[0].disposition is FindingDisposition.BLOCKING
+    assert result.summary.should_fail is True
+
+
+def test_policy_evaluator_strict_keeps_latest_tag_as_advisory() -> None:
+    """Ensure latest-tag finding remains advisory unless policy explicitly marks it blocking."""
+    findings = [_finding("DF002", Severity.HIGH)]
+
+    result = evaluate_findings_policy(findings=findings, policy=resolve_policy_config("strict"))
+
+    assert result.findings[0].disposition is FindingDisposition.ADVISORY
+    assert result.summary.should_fail is False

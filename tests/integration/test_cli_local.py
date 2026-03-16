@@ -14,6 +14,7 @@ def test_build_parser_defaults() -> None:
     assert args.output_format == "markdown"
     assert args.provider_profile == "real"
     assert args.policy_profile == "strict"
+    assert args.fail_on_policy is False
     assert args.image_tar is None
     assert args.output is None
     assert args.dockerfile == ["tests/fixtures/Dockerfile.good"]
@@ -144,3 +145,64 @@ def test_main_runs_pipeline_for_each_dockerfile_target(
     ]
     assert out.count("## Target:") == 2
     assert "---" in out
+
+
+def test_main_fail_on_policy_returns_blocked_exit_code(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure explicit policy gate mode fails process for blocking findings."""
+    dockerfile_path = tmp_path / "Dockerfile"
+    dockerfile_path.write_text(
+        "\n".join(
+            [
+                "FROM python:3.12",
+                "USER root",
+                "CMD python -V",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    code = cli_main.main(
+        [
+            "--dockerfile",
+            str(dockerfile_path),
+            "--fail-on-policy",
+            "--policy-profile",
+            "strict",
+        ]
+    )
+
+    err = capsys.readouterr().err
+    assert code == cli_main.EXIT_POLICY_BLOCKED
+    assert "Policy gate failed:" in err
+
+
+def test_main_fail_on_policy_relaxed_allows_advisory_findings(
+    tmp_path: Path,
+) -> None:
+    """Ensure relaxed policy does not fail CI for advisory-only findings."""
+    dockerfile_path = tmp_path / "Dockerfile"
+    dockerfile_path.write_text(
+        "\n".join(
+            [
+                "FROM python:latest",
+                "USER app",
+                "CMD python -V",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    code = cli_main.main(
+        [
+            "--dockerfile",
+            str(dockerfile_path),
+            "--fail-on-policy",
+            "--policy-profile",
+            "relaxed",
+        ]
+    )
+
+    assert code == cli_main.EXIT_SUCCESS

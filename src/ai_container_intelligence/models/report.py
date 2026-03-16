@@ -57,12 +57,14 @@ class PolicyImpactSummary:
     Args:
         advisory: Count of advisory findings.
         blocking: Count of blocking findings.
+        blocking_rule_ids: Deterministic set of blocking rule identifiers.
         blocking_threshold: Human-readable threshold label.
         should_fail: Whether CI should fail for this report.
     """
 
     advisory: int
     blocking: int
+    blocking_rule_ids: tuple[str, ...]
     blocking_threshold: str
     should_fail: bool
 

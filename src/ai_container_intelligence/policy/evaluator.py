@@ -34,10 +34,10 @@ class PolicyEvaluation:
     summary: PolicyImpactSummary
 
 
-DEFAULT_POLICY = PolicyConfig(
+STRICT_POLICY = PolicyConfig(
     severity_overrides={},
-    blocking_rule_ids=set(),
-    blocking_severities={Severity.HIGH, Severity.CRITICAL},
+    blocking_rule_ids={"DF004"},
+    blocking_severities={Severity.CRITICAL},
 )
 
 RELAXED_POLICY = PolicyConfig(
@@ -45,6 +45,8 @@ RELAXED_POLICY = PolicyConfig(
     blocking_rule_ids=set(),
     blocking_severities={Severity.CRITICAL},
 )
+
+DEFAULT_POLICY = STRICT_POLICY
 
 
 def resolve_policy_config(profile: Literal["strict", "relaxed"] = "strict") -> PolicyConfig:
@@ -58,7 +60,7 @@ def resolve_policy_config(profile: Literal["strict", "relaxed"] = "strict") -> P
     """
     if profile == "relaxed":
         return RELAXED_POLICY
-    return DEFAULT_POLICY
+    return STRICT_POLICY
 
 
 def _replace_finding(
@@ -95,6 +97,7 @@ def evaluate_findings_policy(
     evaluated: list[Finding] = []
     advisory_count = 0
     blocking_count = 0
+    blocking_rule_ids: set[str] = set()
 
     for finding in findings:
         resolved_severity = policy.severity_overrides.get(finding.rule_id, finding.severity)
@@ -107,6 +110,7 @@ def evaluate_findings_policy(
         )
         if is_blocking:
             blocking_count += 1
+            blocking_rule_ids.add(finding.rule_id)
         else:
             advisory_count += 1
 
@@ -124,6 +128,7 @@ def evaluate_findings_policy(
     summary = PolicyImpactSummary(
         advisory=advisory_count,
         blocking=blocking_count,
+        blocking_rule_ids=tuple(sorted(blocking_rule_ids)),
         blocking_threshold=blocking_threshold,
         should_fail=blocking_count > 0,
     )

@@ -12,6 +12,7 @@ from ai_container_intelligence.pipeline import run_pipeline
 EXIT_SUCCESS: Final[int] = 0
 EXIT_RUNTIME_ERROR: Final[int] = 1
 EXIT_INVALID_INPUT: Final[int] = 2
+EXIT_POLICY_BLOCKED: Final[int] = 3
 
 
 def _validate_input_path(path: str, label: str) -> None:
@@ -89,7 +90,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--policy-profile",
         default="strict",
         choices=["strict", "relaxed"],
-        help="Policy profile selection. 'strict' blocks high/critical; 'relaxed' blocks critical only.",
+        help="Policy profile selection. 'strict' blocks critical plus explicit root-runtime rule; 'relaxed' blocks critical only.",
+    )
+    parser.add_argument(
+        "--fail-on-policy",
+        action="store_true",
+        help="Exit with non-zero code when policy marks one or more findings as blocking.",
     )
     return parser
 
@@ -147,6 +153,19 @@ def main(argv: list[str] | None = None) -> int:
         Path(args.output).write_text(output_text, encoding="utf-8")
     else:
         print(output_text)
+
+    if args.fail_on_policy:
+        has_blocking = any(
+            result.analysis_report.policy_summary is not None
+            and result.analysis_report.policy_summary.should_fail
+            for result in results
+        )
+        if has_blocking:
+            print(
+                "Policy gate failed: one or more targets contain blocking findings.",
+                file=sys.stderr,
+            )
+            return EXIT_POLICY_BLOCKED
 
     return EXIT_SUCCESS
 

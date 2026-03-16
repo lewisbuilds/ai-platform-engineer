@@ -63,11 +63,17 @@ def render_markdown_report(report: AnalysisReport) -> MarkdownReport:
 
     policy_lines: list[str] = []
     if report.policy_summary is not None:
+        blocking_rule_ids = ", ".join(report.policy_summary.blocking_rule_ids)
         policy_lines = [
             "## Policy Impact",
             f"- Blocking findings: {report.policy_summary.blocking}",
             f"- Advisory findings: {report.policy_summary.advisory}",
             f"- Blocking threshold: {report.policy_summary.blocking_threshold}",
+            (
+                f"- Blocking rule IDs: {blocking_rule_ids}"
+                if blocking_rule_ids
+                else "- Blocking rule IDs: none"
+            ),
             (
                 "- CI recommendation: FAIL"
                 if report.policy_summary.should_fail

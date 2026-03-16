@@ -20,12 +20,12 @@ def test_render_markdown_report_includes_policy_impact_and_disposition() -> None
     """Ensure report shows policy summary and per-finding policy disposition."""
     findings = [
         Finding(
-            rule_id="DF002",
-            title="Unpinned base image tag",
+            rule_id="DF004",
+            title="Container configured to run as root",
             severity=Severity.HIGH,
             source="dockerfile-review",
-            detail="Using latest makes builds non-reproducible.",
-            remediation="Pin exact image versions.",
+            detail="Running as root increases attack surface.",
+            remediation="Use a non-root runtime user.",
             location=FindingLocation(path="Dockerfile", line=1),
         )
     ]
@@ -41,4 +41,5 @@ def test_render_markdown_report_includes_policy_impact_and_disposition() -> None
     assert "## Policy Impact" in markdown.content
     assert "Blocking findings: 1" in markdown.content
     assert "CI recommendation: FAIL" in markdown.content
+    assert "Blocking rule IDs: DF004" in markdown.content
     assert "Policy: BLOCKING" in markdown.content
