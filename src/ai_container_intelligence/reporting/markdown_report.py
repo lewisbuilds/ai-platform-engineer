@@ -41,6 +41,45 @@ def _format_finding_row(index: int, finding: Finding) -> str:
     )
 
 
+def _build_remediation_summary(findings: list[Finding]) -> list[str]:
+    """Build concise remediation-oriented summary for PR scanning.
+
+    Args:
+        findings: Evaluated findings.
+
+    Returns:
+        Markdown lines for remediation summary section.
+    """
+    if not findings:
+        return ["## Remediation Summary", "No remediation actions required."]
+
+    remediation_map: dict[str, dict[str, int | bool]] = {}
+    for finding in findings:
+        key = finding.remediation
+        if key not in remediation_map:
+            remediation_map[key] = {"count": 0, "blocking": False}
+        remediation_map[key]["count"] = int(remediation_map[key]["count"]) + 1
+        if finding.disposition.value == "blocking":
+            remediation_map[key]["blocking"] = True
+
+    ordered = sorted(
+        remediation_map.items(),
+        key=lambda item: (
+            0 if bool(item[1]["blocking"]) else 1,
+            -int(item[1]["count"]),
+            item[0],
+        ),
+    )
+
+    lines = ["## Remediation Summary"]
+    for index, (remediation, stats) in enumerate(ordered[:3], start=1):
+        status = "BLOCKING" if bool(stats["blocking"]) else "ADVISORY"
+        lines.append(
+            f"{index}. [{status}] ({int(stats['count'])} finding(s)) {remediation}"
+        )
+    return lines
+
+
 def render_markdown_report(report: AnalysisReport) -> MarkdownReport:
     """Render normalized analysis report into markdown.
 
@@ -88,9 +127,12 @@ def render_markdown_report(report: AnalysisReport) -> MarkdownReport:
         for index, finding in enumerate(report.findings, start=1):
             findings_block.append(_format_finding_row(index, finding))
 
+    remediation_block = _build_remediation_summary(report.findings)
+
     sections = [header, "\n".join(summary_lines)]
     if policy_lines:
         sections.append("\n".join(policy_lines))
+    sections.append("\n".join(remediation_block))
     sections.append("\n".join(findings_block))
 
     content = "\n\n".join(sections) + "\n"

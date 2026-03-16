@@ -14,6 +14,8 @@ def test_render_markdown_report_contains_title() -> None:
     assert "Total findings: 0" in markdown.content
     assert "Info: 0" in markdown.content
     assert "Policy Impact" not in markdown.content
+    assert "## Remediation Summary" in markdown.content
+    assert "No remediation actions required." in markdown.content
 
 
 def test_render_markdown_report_includes_policy_impact_and_disposition() -> None:
@@ -42,4 +44,6 @@ def test_render_markdown_report_includes_policy_impact_and_disposition() -> None
     assert "Blocking findings: 1" in markdown.content
     assert "CI recommendation: FAIL" in markdown.content
     assert "Blocking rule IDs: DF004" in markdown.content
+    assert "## Remediation Summary" in markdown.content
+    assert "[BLOCKING] (1 finding(s)) Use a non-root runtime user." in markdown.content
     assert "Policy: BLOCKING" in markdown.content
