@@ -53,6 +53,66 @@ def _format_finding_row(index: int, finding: Finding) -> str:
     return "\n".join(lines)
 
 
+def _resolve_policy_profile_label(report: AnalysisReport, finding: Finding) -> str:
+    """Resolve compact policy profile label from existing report data.
+
+    Args:
+        report: Normalized analysis report.
+        finding: Finding being rendered.
+
+    Returns:
+        Profile label suitable for markdown trace output.
+    """
+    if report.policy_summary is None:
+        return "unknown"
+    if finding.rule_id == "DF004" and finding.disposition.value == "blocking":
+        return "strict"
+    return "strict|relaxed"
+
+
+def _format_core_evidence(finding: Finding) -> str:
+    """Create one compact evidence line for decision trace output.
+
+    Args:
+        finding: Finding being rendered.
+
+    Returns:
+        Compact evidence summary string.
+    """
+    if finding.evidence:
+        pairs = [f"{key}={finding.evidence[key]}" for key in sorted(finding.evidence)]
+        return ", ".join(pairs)
+
+    location_label = _format_location(finding.location)
+    return f"source={finding.source}, location={location_label}"
+
+
+def _format_blocking_decision_trace(report: AnalysisReport, finding: Finding) -> str:
+    """Format concise policy decision trace for one blocking finding.
+
+    Args:
+        report: Normalized analysis report.
+        finding: Blocking finding.
+
+    Returns:
+        Multiline markdown trace block.
+    """
+    return "\n".join(
+        [
+            "   - Decision trace:",
+            f"      - rule ID: {finding.rule_id}",
+            f"      - severity: {finding.severity.value.upper()}",
+            (
+                f"      - policy profile: {_resolve_policy_profile_label(report, finding)}"
+            ),
+            "      - blocking status: blocking",
+            f"      - core evidence: {_format_core_evidence(finding)}",
+            f"      - why this failed: {finding.detail}",
+            f"      - how to fix it: {finding.remediation}",
+        ]
+    )
+
+
 def _determine_policy_outcome(report: AnalysisReport) -> str:
     """Determine policy outcome label for CI-facing summary.
 
@@ -74,7 +134,11 @@ def _determine_policy_outcome(report: AnalysisReport) -> str:
     return POLICY_PASS
 
 
-def _build_findings_section(title: str, findings: list[Finding]) -> list[str]:
+def _build_findings_section(
+    title: str,
+    findings: list[Finding],
+    report: AnalysisReport,
+) -> list[str]:
     """Build a grouped finding section.
 
     Args:
@@ -91,6 +155,8 @@ def _build_findings_section(title: str, findings: list[Finding]) -> list[str]:
 
     for index, finding in enumerate(findings, start=1):
         lines.append(_format_finding_row(index=index, finding=finding))
+        if finding.disposition.value == "blocking":
+            lines.append(_format_blocking_decision_trace(report=report, finding=finding))
     return lines
 
 
@@ -146,8 +212,16 @@ def render_markdown_report(report: AnalysisReport) -> MarkdownReport:
         item for item in report.findings if item.disposition.value == "advisory"
     ]
 
-    blocking_section = _build_findings_section("## Blocking Findings", blocking_findings)
-    advisory_section = _build_findings_section("## Advisory Findings", advisory_findings)
+    blocking_section = _build_findings_section(
+        "## Blocking Findings",
+        blocking_findings,
+        report,
+    )
+    advisory_section = _build_findings_section(
+        "## Advisory Findings",
+        advisory_findings,
+        report,
+    )
 
     sections = [header, "\n".join(summary_lines), "\n".join(policy_outcome_lines)]
     if policy_lines:
