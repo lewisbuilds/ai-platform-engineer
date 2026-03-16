@@ -16,7 +16,7 @@ CLI (thin)
 ```
 
 ## Thin CLI
-Location: [src/ai_container_intelligence/cli/main.py](src/ai_container_intelligence/cli/main.py)
+Location: [src/ai_container_intelligence/cli/main.py](../src/ai_container_intelligence/cli/main.py)
 
 Responsibilities:
 - parse and validate arguments,
@@ -34,7 +34,7 @@ Why this matters:
 - CI and local execution stay consistent.
 
 ## Pipeline Orchestrator
-Location: [src/ai_container_intelligence/pipeline.py](src/ai_container_intelligence/pipeline.py)
+Location: [src/ai_container_intelligence/pipeline.py](../src/ai_container_intelligence/pipeline.py)
 
 Responsibilities:
 - execute analysis flow for one or more Dockerfiles,
@@ -46,7 +46,7 @@ Responsibilities:
 The orchestrator is the only place where layer composition happens.
 
 ## Provider Isolation
-Location: [src/ai_container_intelligence/integrations](src/ai_container_intelligence/integrations)
+Location: [src/ai_container_intelligence/integrations](../src/ai_container_intelligence/integrations)
 
 Pattern:
 - typed provider interfaces,
@@ -59,7 +59,7 @@ Why isolation exists:
 - integration complexity stays outside policy and reporting layers.
 
 ## Policy Evaluation Layer
-Location: [src/ai_container_intelligence/policy/evaluator.py](src/ai_container_intelligence/policy/evaluator.py)
+Location: [src/ai_container_intelligence/policy/evaluator.py](../src/ai_container_intelligence/policy/evaluator.py)
 
 Responsibilities:
 - convert raw findings into policy outcomes,
@@ -71,7 +71,7 @@ Design rule:
 - policy decisions are centralized; no duplicate policy logic in CLI, workflow, or renderer.
 
 ## Reporting Layer
-Location: [src/ai_container_intelligence/reporting/markdown_report.py](src/ai_container_intelligence/reporting/markdown_report.py)
+Location: [src/ai_container_intelligence/reporting/markdown_report.py](../src/ai_container_intelligence/reporting/markdown_report.py)
 
 Responsibilities:
 - render deterministic markdown,
@@ -92,13 +92,13 @@ Key enforcement areas:
 - parser fidelity governance (metric threshold + explicit blind-spot tracking).
 
 Core files:
-- [tests/unit/test_repository_compliance.py](tests/unit/test_repository_compliance.py)
-- [tests/unit/test_detection_corpus_governance.py](tests/unit/test_detection_corpus_governance.py)
-- [tests/unit/test_parser_accuracy_metric.py](tests/unit/test_parser_accuracy_metric.py)
-- [tests/unit/test_detection_known_blind_spots.py](tests/unit/test_detection_known_blind_spots.py)
+- [tests/unit/test_repository_compliance.py](../tests/unit/test_repository_compliance.py)
+- [tests/unit/test_detection_corpus_governance.py](../tests/unit/test_detection_corpus_governance.py)
+- [tests/unit/test_parser_accuracy_metric.py](../tests/unit/test_parser_accuracy_metric.py)
+- [tests/unit/test_detection_known_blind_spots.py](../tests/unit/test_detection_known_blind_spots.py)
 
 ## Runtime and CI Consistency
-Primary workflow: [.github/workflows/pr-container-intelligence.yml](.github/workflows/pr-container-intelligence.yml)
+Primary workflow: [.github/workflows/pr-container-intelligence.yml](../.github/workflows/pr-container-intelligence.yml)
 
 Workflow model:
 1. run parser fidelity checks,
