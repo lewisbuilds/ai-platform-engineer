@@ -87,6 +87,17 @@ Current real-world stress cases included in the golden corpus:
 - ARG + FROM pinned base pattern (`realworld-arg-from-pinned.Dockerfile`)
 - Multiline RUN chain with apt cleanup (`realworld-multiline-run-cleanup.Dockerfile`, tracked as known parser blind spot via xfail)
 
+Corpus growth discipline:
+- For every meaningful rule or parser change, add at least one expected-finding case.
+- For every meaningful rule or parser change, add at least one expected non-finding case.
+- Add one edge or messy case when the behavior can vary under realistic authoring patterns.
+- Keep known gaps visible with explicit expected-failure tests until fixed.
+
+Corpus governance checks:
+- `tests/unit/test_detection_corpus_governance.py` enforces balanced fixture types.
+- The same governance test ensures the baseline rule surface is still exercised.
+- It also verifies the corpus contains both clean and multi-finding samples.
+
 ## Security Checks
 
 Run static security scan locally:
