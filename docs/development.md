@@ -24,7 +24,7 @@ What this verifies:
 - parser behavior changes are visible before full-suite noise.
 
 Data source:
-- [tests/fixtures/golden/parser_fidelity_cases.json](tests/fixtures/golden/parser_fidelity_cases.json)
+- [tests/fixtures/golden/parser_fidelity_cases.json](../tests/fixtures/golden/parser_fidelity_cases.json)
 
 ## 2) Running Corpus Regression Tests
 Run corpus regression to validate detection behavior against curated expected outcomes.
@@ -39,14 +39,14 @@ What this verifies:
 - corpus remains balanced and realistic.
 
 Core corpus file:
-- [tests/fixtures/golden/corpus_cases.json](tests/fixtures/golden/corpus_cases.json)
+- [tests/fixtures/golden/corpus_cases.json](../tests/fixtures/golden/corpus_cases.json)
 
 ## 3) Adding New Rules with Required Corpus Evidence
 When adding or changing a Dockerfile rule, update code and evidence together.
 
 Required workflow:
-1. implement or modify rule logic in [src/ai_container_intelligence/analysis/dockerfile_review.py](src/ai_container_intelligence/analysis/dockerfile_review.py),
-2. add at least one expected-finding case in [tests/fixtures/golden/corpus_cases.json](tests/fixtures/golden/corpus_cases.json),
+1. implement or modify rule logic in [src/ai_container_intelligence/analysis/dockerfile_review.py](../src/ai_container_intelligence/analysis/dockerfile_review.py),
+2. add at least one expected-finding case in [tests/fixtures/golden/corpus_cases.json](../tests/fixtures/golden/corpus_cases.json),
 3. add at least one expected non-finding case,
 4. run parser fidelity and corpus regression tests,
 5. run full suite.
@@ -90,7 +90,7 @@ aci --dockerfile path/to/changed.Dockerfile --fail-on-policy
 ```
 
 ## CI Execution Order
-Primary workflow: [.github/workflows/pr-container-intelligence.yml](.github/workflows/pr-container-intelligence.yml)
+Primary workflow: [.github/workflows/pr-container-intelligence.yml](/.github/workflows/pr-container-intelligence.yml)
 
 CI follows this order:
 1. parser fidelity checks,
