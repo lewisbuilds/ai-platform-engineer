@@ -48,6 +48,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
+          python -m pip install pytest
 
       - name: Install security tooling
         run: python -m pip install bandit
@@ -71,12 +72,12 @@ jobs:
 
       - name: Run parser fidelity checks
         run: |
-          pytest -q \
+          python -m pytest -q \
             tests/unit/test_parser_accuracy_metric.py \
             tests/unit/test_detection_known_blind_spots.py
 
       - name: Run tests
-        run: pytest
+        run: python -m pytest
 
       - name: Run container analysis and build reports
         shell: bash
