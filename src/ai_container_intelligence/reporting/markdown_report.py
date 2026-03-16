@@ -144,6 +144,7 @@ def _build_findings_section(
     Args:
         title: Section title.
         findings: Findings to render.
+        report: Normalized analysis report used for blocking decision traces.
 
     Returns:
         Markdown lines for grouped findings.
