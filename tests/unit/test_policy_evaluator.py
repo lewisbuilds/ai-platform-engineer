@@ -93,8 +93,8 @@ def test_policy_evaluator_strict_marks_root_runtime_rule_blocking() -> None:
     assert result.summary.should_fail is True
 
 
-def test_policy_evaluator_strict_keeps_latest_tag_as_advisory() -> None:
-    """Ensure latest-tag finding remains advisory unless policy explicitly marks it blocking."""
+def test_policy_evaluator_strict_keeps_high_severity_advisory_when_not_rule_blocked() -> None:
+    """Ensure strict profile keeps non-rule-blocked HIGH findings advisory."""
     findings = [_finding("DF002", Severity.HIGH)]
 
     result = evaluate_findings_policy(findings=findings, policy=resolve_policy_config("strict"))
