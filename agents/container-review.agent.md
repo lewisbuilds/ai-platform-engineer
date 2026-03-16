@@ -2,7 +2,6 @@
 description: 'Reviews Docker-related changes and produces actionable, repo-aligned findings for AI Container Intelligence.'
 name: 'Container Review'
 tools: ['codebase', 'search', 'searchResults', 'editFiles', 'runCommands', 'problems']
-model: 'GPT-5.3-Codex'
 target: 'vscode'
 user-invocable: true
 disable-model-invocation: false
