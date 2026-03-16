@@ -8,10 +8,18 @@ from typing import Final
 class Severity(str, Enum):
     """Severity levels used by all findings."""
 
+    INFO = "info"
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+
+class FindingDisposition(str, Enum):
+    """Policy disposition for a finding."""
+
+    ADVISORY = "advisory"
+    BLOCKING = "blocking"
 
 
 SEVERITY_RANK: Final[dict[Severity, int]] = {
@@ -19,6 +27,7 @@ SEVERITY_RANK: Final[dict[Severity, int]] = {
     Severity.HIGH: 1,
     Severity.MEDIUM: 2,
     Severity.LOW: 3,
+    Severity.INFO: 4,
 }
 
 
@@ -47,6 +56,7 @@ class Finding:
         detail: Primary finding detail message.
         remediation: Actionable recommendation.
         location: Optional location metadata.
+        disposition: Policy decision for CI behavior.
     """
 
     rule_id: str
@@ -56,6 +66,7 @@ class Finding:
     detail: str
     remediation: str
     location: FindingLocation | None = None
+    disposition: FindingDisposition = FindingDisposition.ADVISORY
 
 
 def finding_sort_key(finding: Finding) -> tuple[int, str, str, int]:

@@ -13,8 +13,10 @@ def test_build_parser_defaults() -> None:
     args = parser.parse_args(["--dockerfile", "tests/fixtures/Dockerfile.good"])
     assert args.output_format == "markdown"
     assert args.provider_profile == "real"
+    assert args.policy_profile == "strict"
     assert args.image_tar is None
     assert args.output is None
+    assert args.dockerfile == ["tests/fixtures/Dockerfile.good"]
 
 
 def test_main_success_prints_markdown(capsys: pytest.CaptureFixture[str]) -> None:
@@ -77,6 +79,9 @@ def test_main_passes_provider_profile_to_pipeline(
         profile = kwargs.get("provider_profile")
         if isinstance(profile, str):
             captured["provider_profile"] = profile
+        policy_profile = kwargs.get("policy_profile")
+        if isinstance(policy_profile, str):
+            captured["policy_profile"] = policy_profile
 
         class _Result:
             report = type("_Report", (), {"content": "# AI Container Intelligence Report"})()
@@ -90,8 +95,52 @@ def test_main_passes_provider_profile_to_pipeline(
             "tests/fixtures/Dockerfile.good",
             "--provider-profile",
             "noop",
+            "--policy-profile",
+            "relaxed",
         ]
     )
 
     assert code == cli_main.EXIT_SUCCESS
     assert captured["provider_profile"] == "noop"
+    assert captured["policy_profile"] == "relaxed"
+
+
+def test_main_runs_pipeline_for_each_dockerfile_target(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Ensure CLI executes pipeline once per Dockerfile target in input order."""
+    captured_paths: list[str] = []
+
+    def _capture_pipeline(*_args: object, **kwargs: object) -> object:
+        dockerfile_path = kwargs.get("dockerfile_path")
+        if isinstance(dockerfile_path, str):
+            captured_paths.append(dockerfile_path)
+
+        class _Result:
+            report = type(
+                "_Report",
+                (),
+                {"content": f"# AI Container Intelligence Report\n\nPath: {dockerfile_path}"},
+            )()
+
+        return _Result()
+
+    monkeypatch.setattr(cli_main, "run_pipeline", _capture_pipeline)
+
+    code = cli_main.main(
+        [
+            "--dockerfile",
+            "tests/fixtures/Dockerfile.good",
+            "tests/fixtures/Dockerfile.good",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert code == cli_main.EXIT_SUCCESS
+    assert captured_paths == [
+        "tests/fixtures/Dockerfile.good",
+        "tests/fixtures/Dockerfile.good",
+    ]
+    assert out.count("## Target:") == 2
+    assert "---" in out

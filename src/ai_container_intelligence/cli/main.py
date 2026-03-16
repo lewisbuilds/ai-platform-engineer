@@ -61,7 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="version",
         version=f"%(prog)s {__version__}",
     )
-    parser.add_argument("--dockerfile", required=True, help="Path to Dockerfile")
+    parser.add_argument(
+        "--dockerfile",
+        required=True,
+        nargs="+",
+        help="One or more Dockerfile paths",
+    )
     parser.add_argument("--image-tar", required=False, help="Optional path to image tarball")
     parser.add_argument(
         "--output-format",
@@ -79,6 +84,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="real",
         choices=["real", "noop"],
         help="Provider profile selection. Use 'real' for local tool adapters or 'noop' for deterministic stubs.",
+    )
+    parser.add_argument(
+        "--policy-profile",
+        default="strict",
+        choices=["strict", "relaxed"],
+        help="Policy profile selection. 'strict' blocks high/critical; 'relaxed' blocks critical only.",
     )
     return parser
 
@@ -100,7 +111,8 @@ def main(argv: list[str] | None = None) -> int:
         return code
 
     try:
-        _validate_input_path(args.dockerfile, "Dockerfile path")
+        for dockerfile_path in args.dockerfile:
+            _validate_input_path(dockerfile_path, "Dockerfile path")
         if args.image_tar:
             _validate_input_path(args.image_tar, "Image tarball path")
         if args.output:
@@ -110,16 +122,27 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_INVALID_INPUT
 
     try:
-        result = run_pipeline(
-            dockerfile_path=args.dockerfile,
-            image_tar_path=args.image_tar,
-            provider_profile=args.provider_profile,
-        )
+        results = [
+            run_pipeline(
+                dockerfile_path=dockerfile_path,
+                image_tar_path=args.image_tar,
+                provider_profile=args.provider_profile,
+                policy_profile=args.policy_profile,
+            )
+            for dockerfile_path in args.dockerfile
+        ]
     except (OSError, RuntimeError, ValueError) as exc:
         print(f"Execution error: {exc}", file=sys.stderr)
         return EXIT_RUNTIME_ERROR
 
-    output_text = result.report.content
+    if len(results) == 1:
+        output_text = results[0].report.content
+    else:
+        rendered_reports: list[str] = []
+        for dockerfile_path, result in zip(args.dockerfile, results, strict=True):
+            rendered_reports.append(f"## Target: {dockerfile_path}\n\n{result.report.content}")
+        output_text = "\n\n---\n\n".join(rendered_reports)
+
     if args.output:
         Path(args.output).write_text(output_text, encoding="utf-8")
     else:

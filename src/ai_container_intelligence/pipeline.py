@@ -20,6 +20,7 @@ from ai_container_intelligence.models.report import (
     MarkdownReport,
     create_analysis_report,
 )
+from ai_container_intelligence.policy import evaluate_findings_policy, resolve_policy_config
 from ai_container_intelligence.reporting.markdown_report import render_markdown_report
 
 
@@ -41,6 +42,7 @@ def run_pipeline(
     image_tar_path: str | None = None,
     image_ref: str | None = None,
     provider_profile: Literal["real", "noop"] = "real",
+    policy_profile: Literal["strict", "relaxed"] = "strict",
     layer_provider: LayerAnalysisProvider | None = None,
     sbom_provider: SbomProvider | None = None,
     vulnerability_provider: VulnerabilityScanProvider | None = None,
@@ -52,6 +54,7 @@ def run_pipeline(
         image_tar_path: Optional path to image tarball input.
         image_ref: Optional image reference for SBOM and vulnerability providers.
         provider_profile: Provider profile used when explicit providers are not injected.
+        policy_profile: Built-in policy profile for blocking/advisory decisions.
         layer_provider: Layer analysis provider.
         sbom_provider: SBOM provider.
         vulnerability_provider: Vulnerability scan provider.
@@ -79,9 +82,15 @@ def run_pipeline(
         vulnerability_result = selected.vulnerability_provider.scan(image_ref)
         findings.extend(vulnerability_result.findings)
 
+    policy_evaluation = evaluate_findings_policy(
+        findings,
+        policy=resolve_policy_config(policy_profile),
+    )
+
     analysis_report = create_analysis_report(
         title="AI Container Intelligence Report",
-        findings=findings,
+        findings=policy_evaluation.findings,
+        policy_summary=policy_evaluation.summary,
     )
     markdown_report = render_markdown_report(analysis_report)
     return PipelineResult(analysis_report=analysis_report, report=markdown_report)

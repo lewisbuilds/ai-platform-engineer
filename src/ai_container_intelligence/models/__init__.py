@@ -5,10 +5,16 @@ from ai_container_intelligence.models.artifacts import (
     DockerfileArtifact,
     ImageTarArtifact,
 )
-from ai_container_intelligence.models.findings import Finding, FindingLocation, Severity
+from ai_container_intelligence.models.findings import (
+    Finding,
+    FindingDisposition,
+    FindingLocation,
+    Severity,
+)
 from ai_container_intelligence.models.report import (
     AnalysisReport,
     MarkdownReport,
+    PolicyImpactSummary,
     ReportSection,
     SeveritySummary,
     create_analysis_report,
@@ -20,9 +26,11 @@ __all__ = [
     "create_analysis_report",
     "DockerfileArtifact",
     "Finding",
+    "FindingDisposition",
     "FindingLocation",
     "ImageTarArtifact",
     "MarkdownReport",
+    "PolicyImpactSummary",
     "ReportSection",
     "SeveritySummary",
     "Severity",

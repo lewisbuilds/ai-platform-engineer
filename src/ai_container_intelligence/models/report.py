@@ -36,16 +36,35 @@ class SeveritySummary:
     """Count summary by severity.
 
     Args:
+        info: Count of info findings.
         low: Count of low findings.
         medium: Count of medium findings.
         high: Count of high findings.
         critical: Count of critical findings.
     """
 
+    info: int
     low: int
     medium: int
     high: int
     critical: int
+
+
+@dataclass(frozen=True)
+class PolicyImpactSummary:
+    """Policy impact summary for CI decisions.
+
+    Args:
+        advisory: Count of advisory findings.
+        blocking: Count of blocking findings.
+        blocking_threshold: Human-readable threshold label.
+        should_fail: Whether CI should fail for this report.
+    """
+
+    advisory: int
+    blocking: int
+    blocking_threshold: str
+    should_fail: bool
 
 
 @dataclass(frozen=True)
@@ -56,11 +75,13 @@ class AnalysisReport:
         title: Report title.
         findings: Deterministically sorted findings.
         summary: Severity count summary.
+        policy_summary: Optional policy impact summary.
     """
 
     title: str
     findings: list[Finding]
     summary: SeveritySummary
+    policy_summary: PolicyImpactSummary | None = None
 
 
 def summarize_findings(findings: list[Finding]) -> SeveritySummary:
@@ -73,6 +94,7 @@ def summarize_findings(findings: list[Finding]) -> SeveritySummary:
         Severity summary counts.
     """
     return SeveritySummary(
+        info=sum(1 for item in findings if item.severity == Severity.INFO),
         low=sum(1 for item in findings if item.severity == Severity.LOW),
         medium=sum(1 for item in findings if item.severity == Severity.MEDIUM),
         high=sum(1 for item in findings if item.severity == Severity.HIGH),
@@ -80,7 +102,11 @@ def summarize_findings(findings: list[Finding]) -> SeveritySummary:
     )
 
 
-def create_analysis_report(title: str, findings: list[Finding]) -> AnalysisReport:
+def create_analysis_report(
+    title: str,
+    findings: list[Finding],
+    policy_summary: PolicyImpactSummary | None = None,
+) -> AnalysisReport:
     """Create normalized report with deterministic ordering.
 
     Args:
@@ -92,4 +118,9 @@ def create_analysis_report(title: str, findings: list[Finding]) -> AnalysisRepor
     """
     ordered = sorted(findings, key=finding_sort_key)
     summary = summarize_findings(ordered)
-    return AnalysisReport(title=title, findings=ordered, summary=summary)
+    return AnalysisReport(
+        title=title,
+        findings=ordered,
+        summary=summary,
+        policy_summary=policy_summary,
+    )

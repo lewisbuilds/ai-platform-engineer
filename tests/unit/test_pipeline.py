@@ -43,6 +43,7 @@ def test_run_pipeline_returns_expected_shapes() -> None:
     result = run_pipeline(dockerfile_path="tests/fixtures/Dockerfile.good")
     assert isinstance(result.analysis_report.findings, list)
     assert result.report.title == "AI Container Intelligence Report"
+    assert result.analysis_report.policy_summary is not None
 
 
 def test_run_pipeline_includes_layer_provider_findings_for_image_tar() -> None:
@@ -52,7 +53,12 @@ def test_run_pipeline_includes_layer_provider_findings_for_image_tar() -> None:
         image_tar_path="tests/fixtures/sample-image.tar",
         layer_provider=_StaticLayerProvider(),
     )
-    assert any(item.rule_id == "L001" for item in result.analysis_report.findings)
+    finding = next(
+        (item for item in result.analysis_report.findings if item.rule_id == "L001"),
+        None,
+    )
+    assert finding is not None
+    assert finding.disposition.value in {"advisory", "blocking"}
 
 
 def test_run_pipeline_report_ordering_is_deterministic(tmp_path: Path) -> None:
@@ -105,3 +111,33 @@ def test_run_pipeline_noop_profile_uses_noop_providers() -> None:
     rule_ids = {item.rule_id for item in result.analysis_report.findings}
     assert "SBOM001" not in rule_ids
     assert "VULN001" not in rule_ids
+
+
+def test_run_pipeline_relaxed_policy_profile_marks_high_as_advisory(tmp_path: Path) -> None:
+    """Ensure relaxed profile does not block HIGH findings by default."""
+    dockerfile_path = tmp_path / "Dockerfile"
+    dockerfile_path.write_text(
+        "\n".join(
+            [
+                "FROM python:latest",
+                "USER app",
+                "CMD python -V",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_pipeline(
+        dockerfile_path=str(dockerfile_path),
+        policy_profile="relaxed",
+    )
+
+    df002 = next(
+        (item for item in result.analysis_report.findings if item.rule_id == "DF002"),
+        None,
+    )
+    assert df002 is not None
+    assert df002.severity is Severity.HIGH
+    assert df002.disposition.value == "advisory"
+    assert result.analysis_report.policy_summary is not None
+    assert result.analysis_report.policy_summary.should_fail is False
