@@ -2,7 +2,7 @@
 
 import json
 import shutil
-import subprocess
+import subprocess  # nosec B404 - Required for invoking trusted local Syft CLI.
 from typing import Protocol
 
 from ai_container_intelligence.models.findings import Finding, FindingLocation, Severity
@@ -74,7 +74,7 @@ class SyftSbomProvider:
             capture_output=True,
             text=True,
             check=False,
-        )
+        )  # nosec B603 - shell=False and argument list prevent shell injection.
         if completed.returncode != 0:
             stderr = completed.stderr.strip() or "Syft failed without stderr output."
             return [
