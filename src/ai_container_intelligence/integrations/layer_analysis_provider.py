@@ -1,5 +1,6 @@
 """Layer analysis provider abstraction."""
 
+from contextlib import closing
 import json
 import tarfile
 from typing import Protocol
@@ -160,5 +161,6 @@ class TarLayerAnalysisProvider:
         file_obj = archive.extractfile(member)
         if file_obj is None:
             raise ValueError(f"Unable to read archive member: {member.name}")
-        payload = file_obj.read().decode("utf-8")
+        with closing(file_obj):
+            payload = file_obj.read().decode("utf-8")
         return json.loads(payload)

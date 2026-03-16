@@ -1,5 +1,7 @@
 """Unit tests for centralized finding policy evaluation."""
 
+import pytest
+
 from ai_container_intelligence.models.findings import (
     Finding,
     FindingDisposition,
@@ -99,3 +101,9 @@ def test_policy_evaluator_strict_keeps_latest_tag_as_advisory() -> None:
 
     assert result.findings[0].disposition is FindingDisposition.ADVISORY
     assert result.summary.should_fail is False
+
+
+def test_resolve_policy_config_rejects_unsupported_profile() -> None:
+    """Ensure unsupported policy profiles fail fast with explicit error context."""
+    with pytest.raises(ValueError, match="Unsupported policy profile"):
+        resolve_policy_config("custom")

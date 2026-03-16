@@ -53,7 +53,7 @@ RELAXED_POLICY = PolicyConfig(
 DEFAULT_POLICY = STRICT_POLICY
 
 
-def resolve_policy_config(profile: PolicyProfile = "strict") -> PolicyConfig:
+def resolve_policy_config(profile: str = "strict") -> PolicyConfig:
     """Resolve built-in policy profile to concrete policy configuration.
 
     Args:
@@ -61,7 +61,14 @@ def resolve_policy_config(profile: PolicyProfile = "strict") -> PolicyConfig:
 
     Returns:
         Policy configuration for evaluation.
+
+    Raises:
+        ValueError: If profile is not a supported built-in profile.
     """
+    if profile not in POLICY_PROFILES:
+        supported = ", ".join(POLICY_PROFILES)
+        raise ValueError(f"Unsupported policy profile: {profile}. Supported profiles: {supported}")
+
     if profile == "relaxed":
         return RELAXED_POLICY
     return STRICT_POLICY
