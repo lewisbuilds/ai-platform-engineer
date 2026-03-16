@@ -78,6 +78,7 @@ def test_render_markdown_report_renders_policy_outcome_fail() -> None:
     assert "- Outcome: FAIL" in markdown.content
     assert "CI recommendation: FAIL" in markdown.content
     assert "Blocking rule IDs: DF004" in markdown.content
+    assert "- policy profile: strict" not in markdown.content
 
 
 def test_render_markdown_report_groups_blocking_and_advisory_findings() -> None:
@@ -203,6 +204,31 @@ def test_render_markdown_report_policy_outcome_stays_easy_to_scan() -> None:
     assert "- Outcome: FAIL" in markdown.content
     assert "## Policy Impact" in markdown.content
     assert "- CI recommendation: FAIL" in markdown.content
+
+
+def test_render_markdown_report_shows_explicit_policy_profile_in_decision_trace() -> None:
+    """Render policy profile line only when it is explicitly carried in policy summary."""
+    findings = [
+        Finding(
+            rule_id="DF004",
+            title="Container configured to run as root",
+            severity=Severity.HIGH,
+            source="dockerfile-review",
+            detail="Running as root increases attack surface.",
+            remediation="Use a non-root runtime user.",
+            location=FindingLocation(path="Dockerfile", line=3),
+        )
+    ]
+    policy_evaluation = evaluate_findings_policy(findings, profile_label="strict")
+    internal_report = create_analysis_report(
+        "AI Container Intelligence Report",
+        policy_evaluation.findings,
+        policy_summary=policy_evaluation.summary,
+    )
+
+    markdown = render_markdown_report(internal_report)
+
+    assert "- policy profile: strict" in markdown.content
 
 
 def test_render_markdown_report_preserves_evidence_after_policy_evaluation() -> None:

@@ -40,6 +40,7 @@ def test_run_pipeline_returns_expected_shapes() -> None:
     assert isinstance(result.analysis_report.findings, list)
     assert result.report.title == "AI Container Intelligence Report"
     assert result.analysis_report.policy_summary is not None
+    assert result.analysis_report.policy_summary.policy_profile_label == "strict"
 
 
 def test_run_pipeline_includes_layer_provider_findings_for_image_tar() -> None:
@@ -137,3 +138,4 @@ def test_run_pipeline_relaxed_policy_profile_marks_high_as_advisory(tmp_path: Pa
     assert df002.disposition.value == "advisory"
     assert result.analysis_report.policy_summary is not None
     assert result.analysis_report.policy_summary.should_fail is False
+    assert result.analysis_report.policy_summary.policy_profile_label == "relaxed"

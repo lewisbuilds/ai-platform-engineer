@@ -84,6 +84,7 @@ def run_pipeline(
     policy_evaluation = evaluate_findings_policy(
         findings,
         policy=resolve_policy_config(policy_profile),
+        profile_label=policy_profile,
     )
 
     analysis_report = create_analysis_report(

@@ -53,21 +53,18 @@ def _format_finding_row(index: int, finding: Finding) -> str:
     return "\n".join(lines)
 
 
-def _resolve_policy_profile_label(report: AnalysisReport, finding: Finding) -> str:
-    """Resolve compact policy profile label from existing report data.
+def _resolve_policy_profile_label(report: AnalysisReport) -> str | None:
+    """Resolve explicit policy profile label when available.
 
     Args:
         report: Normalized analysis report.
-        finding: Finding being rendered.
 
     Returns:
-        Profile label suitable for markdown trace output.
+        Explicit policy profile label or None when unknown.
     """
     if report.policy_summary is None:
-        return "unknown"
-    if finding.rule_id == "DF004" and finding.disposition.value == "blocking":
-        return "strict"
-    return "strict|relaxed"
+        return None
+    return report.policy_summary.policy_profile_label
 
 
 def _format_core_evidence(finding: Finding) -> str:
@@ -97,20 +94,23 @@ def _format_blocking_decision_trace(report: AnalysisReport, finding: Finding) ->
     Returns:
         Multiline markdown trace block.
     """
-    return "\n".join(
+    lines = [
+        "   - Decision trace:",
+        f"      - rule ID: {finding.rule_id}",
+        f"      - severity: {finding.severity.value.upper()}",
+    ]
+    profile_label = _resolve_policy_profile_label(report)
+    if profile_label is not None:
+        lines.append(f"      - policy profile: {profile_label}")
+    lines.extend(
         [
-            "   - Decision trace:",
-            f"      - rule ID: {finding.rule_id}",
-            f"      - severity: {finding.severity.value.upper()}",
-            (
-                f"      - policy profile: {_resolve_policy_profile_label(report, finding)}"
-            ),
             "      - blocking status: blocking",
             f"      - core evidence: {_format_core_evidence(finding)}",
             f"      - why this failed: {finding.detail}",
             f"      - how to fix it: {finding.remediation}",
         ]
     )
+    return "\n".join(lines)
 
 
 def _determine_policy_outcome(report: AnalysisReport) -> str:

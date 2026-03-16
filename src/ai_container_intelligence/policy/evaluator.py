@@ -96,12 +96,14 @@ def _replace_finding(
 def evaluate_findings_policy(
     findings: list[Finding],
     policy: PolicyConfig = DEFAULT_POLICY,
+    profile_label: str | None = None,
 ) -> PolicyEvaluation:
     """Apply policy-backed severity and blocking decisions.
 
     Args:
         findings: Findings to evaluate.
         policy: Policy configuration.
+        profile_label: Optional explicit policy profile label for report rendering.
 
     Returns:
         Evaluated findings and policy impact summary.
@@ -143,5 +145,6 @@ def evaluate_findings_policy(
         blocking_rule_ids=tuple(sorted(blocking_rule_ids)),
         blocking_threshold=blocking_threshold,
         should_fail=blocking_count > 0,
+        policy_profile_label=profile_label,
     )
     return PolicyEvaluation(findings=evaluated, summary=summary)

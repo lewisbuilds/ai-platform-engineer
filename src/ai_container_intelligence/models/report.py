@@ -46,6 +46,7 @@ class PolicyImpactSummary:
         blocking: Count of blocking findings.
         blocking_rule_ids: Deterministic set of blocking rule identifiers.
         blocking_threshold: Human-readable threshold label.
+        policy_profile_label: Optional explicit policy profile label for rendering.
         should_fail: Whether CI should fail for this report.
     """
 
@@ -54,6 +55,7 @@ class PolicyImpactSummary:
     blocking_rule_ids: tuple[str, ...]
     blocking_threshold: str
     should_fail: bool
+    policy_profile_label: str | None = None
 
 
 @dataclass(frozen=True)
