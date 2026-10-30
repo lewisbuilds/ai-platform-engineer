@@ -1,0 +1,15 @@
+{
+  "source": "https://github.com/github/awesome-copilot",
+  "upstream_commit": "5269f7ea2d6c3a9bfda5ed878b6726cf509121fd",
+  "verified_date": "2026-10-30",
+  "repository_base_commit": "fd81fa9c53f898d7183b9f06d6a737a626c0775c",
+  "resources": [
+    {
+      "path": ".github/instructions/docker.instructions.md",
+      "upstream_path": "instructions/containerization-docker-best-practices.instructions.md",
+      "upstream_blob_sha": "a552cf768e1cae1e47102dfc7635093892e50869",
+      "status": "already-current"
+    }
+  ],
+  "policy": "Preserve project-specific engineering standards; no deployment."
+}
